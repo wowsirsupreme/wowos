@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="text">#F2FFFFFF</color>
+    <color name="text_dim">#A6FFFFFF</color>
+    <color name="text_faint">#73FFFFFF</color>
+</resources>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">WOW OS</string>
+    <string name="tagline">by WOW Sir</string>
+    <string name="sec_quick">QUICK</string>
+    <string name="sec_favs">FAVOURITES</string>
+    <string name="sec_all">ALL APPS</string>
+    <string name="fav_hint">Hold OK (or press Menu) on any app to pin it here</string>
+</resources>
