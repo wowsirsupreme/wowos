@@ -52,6 +52,9 @@ public class HomeActivity extends Activity {
     private final Handler ui = new Handler(Looper.getMainLooper());
 
     private LinearLayout quickRow;
+    private LinearLayout inputsRow;
+    private View inputsScroll;
+    private View inputsSection;
     private LinearLayout favRow;
     private HorizontalScrollView quickScroll;
     private HorizontalScrollView favScroll;
@@ -87,6 +90,9 @@ public class HomeActivity extends Activity {
         prefs = new Prefs(this);
 
         quickRow = findViewById(R.id.quick_row);
+        inputsRow = findViewById(R.id.inputs_row);
+        inputsScroll = findViewById(R.id.inputs_scroll);
+        inputsSection = findViewById(R.id.sec_inputs);
         favRow = findViewById(R.id.fav_row);
         quickScroll = findViewById(R.id.quick_scroll);
         favScroll = findViewById(R.id.fav_scroll);
@@ -104,6 +110,7 @@ public class HomeActivity extends Activity {
         nextText = findViewById(R.id.next_text);
 
         buildQuickRow();
+        buildInputsRow();
 
         registerReceiver(packageReceiver, packageFilter());
         registerReceiver(statusReceiver, statusFilter());
@@ -387,6 +394,43 @@ public class HomeActivity extends Activity {
         if (d.getWindow() != null) d.getWindow().setBackgroundDrawableResource(R.drawable.dialog_glass);
     }
 
+    // ------------------------------------------------------------------ inputs
+
+    private void buildInputsRow() {
+        inputsRow.removeAllViews();
+        java.util.List<InputSwitch.Input> inputs = InputSwitch.available(this)
+                ? InputSwitch.inputs() : java.util.Collections.<InputSwitch.Input>emptyList();
+        boolean show = !inputs.isEmpty();
+        inputsSection.setVisibility(show ? View.VISIBLE : View.GONE);
+        inputsScroll.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (!show) return;
+        for (final InputSwitch.Input in : inputs) {
+            View t = inflater.inflate(R.layout.item_quick, inputsRow, false);
+            ((ImageView) t.findViewById(R.id.icon)).setImageResource(in.iconRes);
+            ((TextView) t.findViewById(R.id.label)).setText(in.label);
+            t.setTag(in.enumName);
+            t.setOnFocusChangeListener(Tiles.LIFT_ON_FOCUS);
+            t.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    String err = InputSwitch.select(HomeActivity.this, in.enumName);
+                    if (err != null) toast(err);
+                }
+            });
+            inputsRow.addView(t);
+        }
+        markCurrentInput();
+    }
+
+    /** Dim the input the TV is already showing. */
+    private void markCurrentInput() {
+        String cur = InputSwitch.current(this);
+        for (int i = 0; i < inputsRow.getChildCount(); i++) {
+            View t = inputsRow.getChildAt(i);
+            boolean isCur = cur != null && cur.equals(t.getTag());
+            t.setAlpha(isCur ? 0.55f : 1f);
+        }
+    }
+
     // ------------------------------------------------------------------ quick row
 
     private void buildQuickRow() {
@@ -567,6 +611,7 @@ public class HomeActivity extends Activity {
         refreshUsb();
         refreshGreeting();
         refreshNextUp();
+        if (inputsRow != null && inputsRow.getChildCount() > 0) markCurrentInput();
     }
 
     @SuppressWarnings("deprecation")

@@ -95,7 +95,27 @@ public class ConnectionsActivity extends Activity {
     }
 
     private void tvInputs() {
-        LinearLayout c = Ui.card(this, content, R.drawable.ic_tv, "TV inputs");
+        LinearLayout c = Ui.card(this, content, R.drawable.ic_tv, "Inputs");
+
+        // Preferred path: WOW OS switches inputs itself (system install on this TV).
+        if (InputSwitch.available(this)) {
+            String cur = InputSwitch.current(this);
+            for (final InputSwitch.Input in : InputSwitch.inputs()) {
+                boolean isCur = in.enumName.equals(cur);
+                Ui.row(this, c, in.iconRes, in.label, isCur ? "Showing now" : null,
+                        isCur ? "On" : "Switch", new Runnable() {
+                            @Override public void run() {
+                                String err = InputSwitch.select(ConnectionsActivity.this, in.enumName);
+                                Toast.makeText(ConnectionsActivity.this,
+                                        err == null ? "Switched to " + in.label : err, Toast.LENGTH_SHORT).show();
+                                content.postDelayed(new Runnable() { @Override public void run() { build(); } }, 800);
+                            }
+                        });
+            }
+            Ui.line(this, c, "Switch HDMI, AV and antenna from here or the home screen.");
+            return;
+        }
+
         List<TvInputInfo> inputs = Collections.emptyList();
         try {
             TvInputManager tim = (TvInputManager) getSystemService(Context.TV_INPUT_SERVICE);
@@ -103,8 +123,8 @@ public class ConnectionsActivity extends Activity {
         } catch (Exception ignored) { }
 
         if (inputs.isEmpty()) {
-            Ui.line(this, c, "This box has no HDMI-in or antenna input.");
-            Ui.line(this, c, "For antenna TV or another HDMI device, press Source on the Samsung remote.");
+            Ui.line(this, c, "WOW OS can switch HDMI, AV and antenna directly once it is installed as a system app (see the project README).");
+            Ui.line(this, c, "For now, use the Source button on the remote.");
             return;
         }
         for (final TvInputInfo in : inputs) {
