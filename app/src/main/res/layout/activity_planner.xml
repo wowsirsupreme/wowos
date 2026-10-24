@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:paddingStart="40dp"
+    android:paddingTop="28dp"
+    android:paddingEnd="40dp"
+    android:paddingBottom="24dp">
+
+    <!-- Today -->
+    <LinearLayout
+        android:layout_width="300dp"
+        android:layout_height="match_parent"
+        android:background="@drawable/glass_panel"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextClock
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:format12Hour="EEEE"
+            android:format24Hour="EEEE"
+            android:textColor="@color/text_dim"
+            android:textSize="14sp" />
+
+        <TextClock
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-light"
+            android:format12Hour="d MMMM"
+            android:format24Hour="d MMMM"
+            android:textColor="@color/text"
+            android:textSize="30sp" />
+
+        <TextView style="@style/Section" android:layout_marginStart="0dp" android:layout_marginTop="22dp" android:text="@string/next_up" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/glass_tile_normal"
+            android:orientation="vertical"
+            android:padding="14dp">
+
+            <TextView
+                android:id="@+id/next_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:textColor="@color/text"
+                android:textSize="17sp" />
+
+            <TextView
+                android:id="@+id/next_meta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textColor="@color/text_dim"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <TextView style="@style/Section" android:layout_marginStart="0dp" android:layout_marginTop="22dp" android:text="@string/today" />
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginTop="6dp"
+            android:layout_weight="1"
+            android:focusable="false"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:id="@+id/today"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </ScrollView>
+    </LinearLayout>
+
+    <!-- All plans -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_marginStart="20dp"
+        android:layout_weight="1"
+        android:background="@drawable/glass_panel"
+        android:clipChildren="false"
+        android:orientation="vertical"
+        android:padding="14dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:clipChildren="false"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="8dp"
+            android:paddingBottom="10dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="sans-serif-medium"
+                android:text="@string/planner_name"
+                android:textColor="@color/text"
+                android:textSize="20sp" />
+
+            <LinearLayout android:id="@+id/btn_add_alarm" style="@style/GlassButton">
+                <ImageView style="@style/GlassButtonIcon" android:src="@drawable/ic_alarm" />
+                <TextView style="@style/GlassButtonText" android:text="@string/add_alarm" />
+            </LinearLayout>
+
+            <LinearLayout android:id="@+id/btn_add_plan" style="@style/GlassButton">
+                <ImageView style="@style/GlassButtonIcon" android:src="@drawable/ic_calendar" />
+                <TextView style="@style/GlassButtonText" android:text="@string/add_plan" />
+            </LinearLayout>
+
+            <LinearLayout android:id="@+id/btn_alert_settings" style="@style/GlassButton">
+                <ImageView style="@style/GlassButtonIcon" android:src="@drawable/ic_alerts" />
+                <TextView style="@style/GlassButtonText" android:text="@string/alert_settings" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <ListView
+                android:id="@+id/list"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:divider="@null"
+                android:dividerHeight="4dp"
+                android:listSelector="@drawable/glass_row"
+                android:scrollbars="none" />
+
+            <TextView
+                android:id="@+id/empty"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:text="@string/planner_empty"
+                android:textColor="@color/text_faint"
+                android:textSize="15sp" />
+        </FrameLayout>
+    </LinearLayout>
+</LinearLayout>

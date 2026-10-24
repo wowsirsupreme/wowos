@@ -9,4 +9,19 @@
     <string name="files_name">WOW Files</string>
     <string name="btn_up">Up</string>
     <string name="btn_new">New folder</string>
+    <string name="snooze">Snooze 10 min</string>
+    <string name="dismiss">Dismiss</string>
+    <string name="planner_name">Life Planner</string>
+    <string name="kb_name">WOW Keyboard</string>
+    <string name="next_up">NEXT UP</string>
+    <string name="today">TODAY</string>
+    <string name="add_alarm">Alarm</string>
+    <string name="add_plan">Plan</string>
+    <string name="alert_settings">Alerts</string>
+    <string name="planner_empty">Nothing planned yet.
+Add an alarm or a plan for your day.</string>
+    <string name="plan_hint">What is it? (e.g. Maths class)</string>
+    <string name="kind_alarm">Alarm: rings until dismissed</string>
+    <string name="kind_reminder">Reminder: short chime</string>
+    <string name="default_name">Wilfred</string>
 </resources>

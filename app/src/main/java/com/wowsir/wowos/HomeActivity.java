@@ -64,6 +64,12 @@ public class HomeActivity extends Activity {
     private TextView netText;
     private ImageView usbDot;
     private TextView usbText;
+    private TextView greetView;
+    private TextView messageView;
+    private View nextChip;
+    private TextView nextText;
+    private String lastMessage;
+    private static final long MESSAGE_MS = 45_000;
 
     private final List<AppEntry> allApps = new ArrayList<>();
     private final Map<String, AppEntry> byPkg = new HashMap<>();
@@ -92,6 +98,10 @@ public class HomeActivity extends Activity {
         netText = findViewById(R.id.net_text);
         usbDot = findViewById(R.id.usb_dot);
         usbText = findViewById(R.id.usb_text);
+        greetView = findViewById(R.id.greet);
+        messageView = findViewById(R.id.message);
+        nextChip = findViewById(R.id.next_chip);
+        nextText = findViewById(R.id.next_text);
 
         buildQuickRow();
 
@@ -108,12 +118,15 @@ public class HomeActivity extends Activity {
         super.onResume();
         refreshStatus();
         ui.postDelayed(statusTick, STATUS_REFRESH_MS);
+        showMessage(false);
+        ui.postDelayed(messageTick, MESSAGE_MS);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         ui.removeCallbacks(statusTick);
+        ui.removeCallbacks(messageTick);
     }
 
     @Override
@@ -393,6 +406,18 @@ public class HomeActivity extends Activity {
         addQuick(R.drawable.ic_folder, "Files", new Runnable() { @Override public void run() {
             tryStart(new Intent(HomeActivity.this, FilesActivity.class));
         } });
+        addQuick(R.drawable.ic_calendar, "Planner", new Runnable() { @Override public void run() {
+            PlannerActivity.open(HomeActivity.this, null);
+        } });
+        addQuick(R.drawable.ic_alarm, "Alarm", new Runnable() { @Override public void run() {
+            PlannerActivity.open(HomeActivity.this, "alarm");
+        } });
+        addQuick(R.drawable.ic_plug, "Connections", new Runnable() { @Override public void run() {
+            tryStart(new Intent(HomeActivity.this, ConnectionsActivity.class));
+        } });
+        addQuick(R.drawable.ic_keyboard, "Keyboard", new Runnable() { @Override public void run() {
+            openKeyboardSetup();
+        } });
         addQuick(R.drawable.ic_cast, "Mirror", new Runnable() { @Override public void run() {
             AppEntry e = byPkg.get("com.wowsir.airwow");
             if (e == null) e = findApp("airwow", "airplay", "airpin", "mirror", "miracast", "eshare", "cast", "screen share");
@@ -406,6 +431,12 @@ public class HomeActivity extends Activity {
         addQuick(R.drawable.ic_globe, "Browser", new Runnable() { @Override public void run() {
             AppEntry e = findApp("browser", "chrome", "firefox", "edge", "puffin");
             if (e != null) launch(e); else toast("No browser installed");
+        } });
+        addQuick(R.drawable.ic_alerts, "Alerts", new Runnable() { @Override public void run() {
+            tryStart(new Intent(HomeActivity.this, AlertSettingsActivity.class));
+        } });
+        addQuick(R.drawable.ic_star, "Personalise", new Runnable() { @Override public void run() {
+            tryStart(new Intent(HomeActivity.this, PersonaliseActivity.class));
         } });
         addQuick(R.drawable.ic_hidden, "Hidden", new Runnable() { @Override public void run() {
             showHiddenManager();
@@ -449,6 +480,78 @@ public class HomeActivity extends Activity {
         }
     }
 
+    // ------------------------------------------------------------------ greeting & next up
+
+    private final Runnable messageTick = new Runnable() {
+        @Override public void run() {
+            showMessage(true);
+            ui.postDelayed(this, MESSAGE_MS);
+        }
+    };
+
+    private void refreshGreeting() {
+        boolean on = Greeting.show(this);
+        greetView.setVisibility(on ? View.VISIBLE : View.GONE);
+        messageView.setVisibility(on ? View.VISIBLE : View.GONE);
+        if (on) greetView.setText(Greeting.hello(this));
+    }
+
+    /** Fade to a new message suited to the time of day. */
+    private void showMessage(boolean animate) {
+        if (!Greeting.show(this)) return;
+        final String next = Greeting.message(this, lastMessage);
+        lastMessage = next;
+        if (!animate) {
+            messageView.setText(next);
+            return;
+        }
+        messageView.animate().alpha(0f).setDuration(400).withEndAction(new Runnable() {
+            @Override public void run() {
+                messageView.setText(next);
+                messageView.animate().alpha(1f).setDuration(600).start();
+            }
+        }).start();
+    }
+
+    private void refreshNextUp() {
+        long now = System.currentTimeMillis();
+        Plans.Plan p = Plans.nextUp(this, now);
+        long at = p == null ? -1 : Plans.nextTrigger(p, now);
+        // Only show what's coming in the next 24 hours.
+        if (p == null || at - now > 24 * 3_600_000L) {
+            nextChip.setVisibility(View.GONE);
+            return;
+        }
+        nextChip.setVisibility(View.VISIBLE);
+        nextText.setText(Plans.timeText(this, p.hour, p.minute) + "  " + p.displayTitle());
+    }
+
+    private void openKeyboardSetup() {
+        android.view.inputmethod.InputMethodManager imm =
+                (android.view.inputmethod.InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+        boolean enabled = false;
+        if (imm != null) {
+            for (android.view.inputmethod.InputMethodInfo info : imm.getEnabledInputMethodList()) {
+                if (getPackageName().equals(info.getPackageName())) enabled = true;
+            }
+        }
+        if (enabled && imm != null) {
+            imm.showInputMethodPicker();
+            return;
+        }
+        if (tryStart(new Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))) {
+            toast("Turn on WOW Keyboard, then press Keyboard again to switch to it");
+            return;
+        }
+        AlertDialog d = new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle("Turn on WOW Keyboard")
+                .setMessage("This box hides keyboard settings. Run these from the Mac terminal:\n\n"
+                        + "adb shell ime enable com.wowsir.wowos/.WowKeyboard\n"
+                        + "adb shell ime set com.wowsir.wowos/.WowKeyboard")
+                .setPositiveButton("OK", null).create();
+        showGlass(d);
+    }
+
     // ------------------------------------------------------------------ status chips
 
     private final Runnable statusTick = new Runnable() {
@@ -462,6 +565,8 @@ public class HomeActivity extends Activity {
     private void refreshStatus() {
         refreshNetwork();
         refreshUsb();
+        refreshGreeting();
+        refreshNextUp();
     }
 
     @SuppressWarnings("deprecation")
