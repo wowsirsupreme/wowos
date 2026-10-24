@@ -8,6 +8,8 @@ APK="${APK:-WOWOS.apk}"
 
 adb connect "$DEV"
 adb -s "$DEV" install -r "$APK"
+adb -s "$DEV" shell pm grant com.wowsir.wowos android.permission.READ_EXTERNAL_STORAGE || true
+adb -s "$DEV" shell pm grant com.wowsir.wowos android.permission.WRITE_EXTERNAL_STORAGE || true
 adb -s "$DEV" shell cmd package set-home-activity com.wowsir.wowos/.HomeActivity
 adb -s "$DEV" shell input keyevent KEYCODE_HOME
 echo "WOW OS installed and set as home screen."

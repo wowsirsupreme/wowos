@@ -7,7 +7,7 @@ import android.widget.TextView;
 
 /** Fills an item_app tile and gives it the glass focus animation. */
 final class Tiles {
-    static final float FOCUS_SCALE = 1.08f;
+    static final float FOCUS_SCALE = 1.06f;
 
     private Tiles() { }
 

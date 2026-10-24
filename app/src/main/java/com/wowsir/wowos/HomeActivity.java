@@ -24,8 +24,7 @@ import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.AdapterView;
-import android.widget.GridView;
+import android.widget.ScrollView;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -57,8 +56,9 @@ public class HomeActivity extends Activity {
     private HorizontalScrollView quickScroll;
     private HorizontalScrollView favScroll;
     private TextView favHint;
-    private GridView grid;
-    private AppAdapter adapter;
+    private LinearLayout allRow;
+    private HorizontalScrollView allScroll;
+    private ScrollView page;
 
     private ImageView netDot;
     private TextView netText;
@@ -67,7 +67,6 @@ public class HomeActivity extends Activity {
 
     private final List<AppEntry> allApps = new ArrayList<>();
     private final Map<String, AppEntry> byPkg = new HashMap<>();
-    private View gridLifted;
     private boolean loading;
 
     // ------------------------------------------------------------------ lifecycle
@@ -86,15 +85,14 @@ public class HomeActivity extends Activity {
         quickScroll = findViewById(R.id.quick_scroll);
         favScroll = findViewById(R.id.fav_scroll);
         favHint = findViewById(R.id.fav_hint);
-        grid = findViewById(R.id.grid);
+        allRow = findViewById(R.id.all_row);
+        allScroll = findViewById(R.id.all_scroll);
+        page = findViewById(R.id.page);
         netDot = findViewById(R.id.net_dot);
         netText = findViewById(R.id.net_text);
         usbDot = findViewById(R.id.usb_dot);
         usbText = findViewById(R.id.usb_text);
 
-        adapter = new AppAdapter(inflater, pm);
-        grid.setAdapter(adapter);
-        setUpGrid();
         buildQuickRow();
 
         registerReceiver(packageReceiver, packageFilter());
@@ -131,7 +129,8 @@ public class HomeActivity extends Activity {
         super.onNewIntent(intent);
         quickScroll.smoothScrollTo(0, 0);
         favScroll.smoothScrollTo(0, 0);
-        grid.setSelection(0);
+        allScroll.smoothScrollTo(0, 0);
+        page.smoothScrollTo(0, 0);
         if (quickRow.getChildCount() > 0) quickRow.getChildAt(0).requestFocus();
     }
 
@@ -146,10 +145,7 @@ public class HomeActivity extends Activity {
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_MENU) {
             View f = getCurrentFocus();
-            if (f == grid) {
-                Object o = grid.getSelectedItem();
-                if (o instanceof AppEntry) { showAppOptions((AppEntry) o, false); return true; }
-            } else if (f != null && f.getTag() instanceof AppEntry) {
+            if (f != null && f.getTag() instanceof AppEntry) {
                 showAppOptions((AppEntry) f.getTag(), f.getParent() == favRow);
                 return true;
             }
@@ -216,9 +212,53 @@ public class HomeActivity extends Activity {
         Set<String> hidden = prefs.hidden();
         List<AppEntry> visible = new ArrayList<>();
         for (AppEntry e : allApps) if (!hidden.contains(e.pkg)) visible.add(e);
-        gridLifted = null;
-        adapter.setItems(visible);
+        renderAll(visible);
         renderFavs();
+    }
+
+    /** All apps as two rows that scroll left to right. */
+    private void renderAll(List<AppEntry> visible) {
+        View focused = getCurrentFocus();
+        boolean hadFocus = focused != null && focused.getParent() != null
+                && focused.getParent().getParent() == allRow;
+
+        allRow.removeAllViews();
+        int width = dp(168);
+        int gap = dp(18);
+        LinearLayout column = null;
+        for (int i = 0; i < visible.size(); i++) {
+            if (i % 2 == 0) {
+                column = new LinearLayout(this);
+                column.setOrientation(LinearLayout.VERTICAL);
+                column.setClipChildren(false);
+                LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                clp.setMarginEnd(gap);
+                allRow.addView(column, clp);
+            }
+            View tile = makeAppTile(visible.get(i), false);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(width, ViewGroup.LayoutParams.WRAP_CONTENT);
+            if (i % 2 == 0) lp.bottomMargin = gap;
+            column.addView(tile, lp);
+        }
+        if (hadFocus && allRow.getChildCount() > 0) {
+            ((ViewGroup) allRow.getChildAt(0)).getChildAt(0).requestFocus();
+        }
+    }
+
+    private View makeAppTile(final AppEntry e, final boolean inFavRow) {
+        View tile = inflater.inflate(R.layout.item_app, allRow, false);
+        tile.setFocusable(true);
+        tile.setTag(e);
+        Tiles.bind(tile, e, pm);
+        tile.setOnFocusChangeListener(Tiles.LIFT_ON_FOCUS);
+        tile.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { launch(e); }
+        });
+        tile.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override public boolean onLongClick(View v) { showAppOptions(e, inFavRow); return true; }
+        });
+        return tile;
     }
 
     private void renderFavs() {
@@ -229,23 +269,12 @@ public class HomeActivity extends Activity {
         favRow.removeAllViews();
         int px = dp(176);
         for (String p : prefs.favs()) {
-            final AppEntry e = byPkg.get(p);
+            AppEntry e = byPkg.get(p);
             if (e == null) continue;
-            View tile = inflater.inflate(R.layout.item_app, favRow, false);
+            View tile = makeAppTile(e, true);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(px, ViewGroup.LayoutParams.WRAP_CONTENT);
-            lp.setMarginEnd(dp(16));
-            tile.setLayoutParams(lp);
-            tile.setFocusable(true);
-            tile.setTag(e);
-            Tiles.bind(tile, e, pm);
-            tile.setOnFocusChangeListener(Tiles.LIFT_ON_FOCUS);
-            tile.setOnClickListener(new View.OnClickListener() {
-                @Override public void onClick(View v) { launch(e); }
-            });
-            tile.setOnLongClickListener(new View.OnLongClickListener() {
-                @Override public boolean onLongClick(View v) { showAppOptions(e, true); return true; }
-            });
-            favRow.addView(tile);
+            lp.setMarginEnd(dp(18));
+            favRow.addView(tile, lp);
         }
         boolean empty = favRow.getChildCount() == 0;
         favScroll.setVisibility(empty ? View.GONE : View.VISIBLE);
@@ -254,51 +283,6 @@ public class HomeActivity extends Activity {
         if (favHadFocus && !empty) {
             int i = Math.max(0, Math.min(focusIndex, favRow.getChildCount() - 1));
             favRow.getChildAt(i).requestFocus();
-        }
-    }
-
-    private void setUpGrid() {
-        grid.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                launch(adapter.getItem(position));
-            }
-        });
-        grid.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
-            @Override
-            public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
-                showAppOptions(adapter.getItem(position), false);
-                return true;
-            }
-        });
-        grid.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                liftGridTile(grid.hasFocus() ? view : null);
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
-                liftGridTile(null);
-            }
-        });
-        grid.setOnFocusChangeListener(new View.OnFocusChangeListener() {
-            @Override
-            public void onFocusChange(View v, boolean hasFocus) {
-                liftGridTile(hasFocus ? grid.getSelectedView() : null);
-            }
-        });
-    }
-
-    private void liftGridTile(View v) {
-        if (gridLifted != null && gridLifted != v) {
-            gridLifted.setSelected(false);
-            Tiles.lift(gridLifted, false);
-        }
-        gridLifted = v;
-        if (v != null) {
-            v.setSelected(true);
-            Tiles.lift(v, true);
         }
     }
 
@@ -407,9 +391,7 @@ public class HomeActivity extends Activity {
                     new Intent(Settings.ACTION_SETTINGS));
         } });
         addQuick(R.drawable.ic_folder, "Files", new Runnable() { @Override public void run() {
-            AppEntry e = findApp("file", "explorer", "x-plore", "documents");
-            if (e != null) launch(e);
-            else toast("Install a file manager (e.g. X-plore) from Google Play");
+            tryStart(new Intent(HomeActivity.this, FilesActivity.class));
         } });
         addQuick(R.drawable.ic_cast, "Mirror", new Runnable() { @Override public void run() {
             AppEntry e = byPkg.get("com.wowsir.airwow");
