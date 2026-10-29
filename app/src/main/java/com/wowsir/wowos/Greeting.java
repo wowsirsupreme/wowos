@@ -80,8 +80,15 @@ final class Greeting {
         prefs(c).edit().putString(K_MINE, TextUtils.join("\n", lines)).apply();
     }
 
+    /** Local hour using the corrected time, so a wrong device clock doesn't matter. */
+    private static int hourNow() {
+        Calendar cal = Calendar.getInstance();
+        cal.setTimeInMillis(TimeSync.nowMillis());
+        return cal.get(Calendar.HOUR_OF_DAY);
+    }
+
     static String hello(Context c) {
-        int h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
+        int h = hourNow();
         String part;
         if (h >= 5 && h < 12) part = "Good morning";
         else if (h >= 12 && h < 17) part = "Good afternoon";
@@ -96,7 +103,7 @@ final class Greeting {
         List<String> pool = new ArrayList<>(mine(c));
         if (builtin(c) || pool.isEmpty()) {
             pool.addAll(Arrays.asList(ANY_TIME));
-            int h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
+            int h = hourNow();
             String[] timed = h >= 5 && h < 12 ? MORNING : h >= 12 && h < 17 ? AFTERNOON : h >= 17 && h < 22 ? EVENING : NIGHT;
             // Weight time-of-day lines so they come up often.
             pool.addAll(Arrays.asList(timed));

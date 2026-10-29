@@ -17,6 +17,7 @@ public class WowApp extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+        TimeSync.syncSoon(this);
         Plans.reschedule(this);
         watchNetwork();
     }
@@ -47,6 +48,7 @@ public class WowApp extends Application {
         if (SystemClock.elapsedRealtime() - started < QUIET_AFTER_START_MS) return;
         if (!Alerts.on(this, Alerts.K_NETWORK)) return;
         if (nowOnline) {
+            TimeSync.syncSoon(this);
             String kind = "Wi-Fi";
             try {
                 NetworkCapabilities caps = cm.getNetworkCapabilities(n);

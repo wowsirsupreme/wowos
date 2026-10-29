@@ -123,6 +123,7 @@ public class HomeActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        TimeSync.syncSoon(this);
         refreshStatus();
         ui.postDelayed(statusTick, STATUS_REFRESH_MS);
         showMessage(false);
