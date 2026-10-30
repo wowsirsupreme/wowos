@@ -318,6 +318,7 @@ public class HomeActivity extends Activity {
             AppEntry e = byPkg.get(p);
             if (e == null) continue;
             View tile = makeAppTile(e, true);
+            tile.setOnFocusChangeListener(Tiles.dock(favRow));
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(px, ViewGroup.LayoutParams.WRAP_CONTENT);
             lp.setMarginEnd(dp(18));
             favRow.addView(tile, lp);
@@ -435,7 +436,7 @@ public class HomeActivity extends Activity {
             ((ImageView) t.findViewById(R.id.icon)).setImageResource(in.iconRes);
             ((TextView) t.findViewById(R.id.label)).setText(in.label);
             t.setTag(in.enumName);
-            t.setOnFocusChangeListener(Tiles.LIFT_ON_FOCUS);
+            t.setOnFocusChangeListener(Tiles.dock(inputsRow));
             t.setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) {
                     String err = InputSwitch.select(HomeActivity.this, in.enumName);
@@ -524,7 +525,7 @@ public class HomeActivity extends Activity {
         View t = inflater.inflate(R.layout.item_quick, quickRow, false);
         ((ImageView) t.findViewById(R.id.icon)).setImageResource(iconRes);
         ((TextView) t.findViewById(R.id.label)).setText(label);
-        t.setOnFocusChangeListener(Tiles.LIFT_ON_FOCUS);
+        t.setOnFocusChangeListener(Tiles.dock(quickRow));
         t.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { action.run(); }
         });

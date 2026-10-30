@@ -76,4 +76,46 @@ final class Tiles {
             lift(v, hasFocus);
         }
     };
+
+    // ---- macOS Dock-style magnification for a horizontal row --------------------
+    // The focused tile swells most and its neighbours bulge less, falling off with
+    // distance, so focus moves along the row like a wave under a Dock.
+
+    private static final float[] DOCK_SCALE = {1.18f, 1.09f, 1.035f};
+
+    /** A focus listener that magnifies the whole row around whatever tile has focus. */
+    static View.OnFocusChangeListener dock(final android.widget.LinearLayout row) {
+        return new View.OnFocusChangeListener() {
+            @Override public void onFocusChange(View v, boolean hasFocus) {
+                row.post(new Runnable() { @Override public void run() { magnify(row); } });
+            }
+        };
+    }
+
+    private static void magnify(android.widget.LinearLayout row) {
+        View focused = row.findFocus();
+        int fi = -1;
+        for (int i = 0; i < row.getChildCount(); i++) {
+            if (contains(row.getChildAt(i), focused)) { fi = i; break; }
+        }
+        for (int i = 0; i < row.getChildCount(); i++) {
+            View c = row.getChildAt(i);
+            float scale = 1f, z = 0f;
+            if (fi >= 0) {
+                int dist = Math.abs(i - fi);
+                scale = dist < DOCK_SCALE.length ? DOCK_SCALE[dist] : 1f;
+                z = dist == 0 ? 16f : 0f;
+            }
+            c.animate().scaleX(scale).scaleY(scale).translationZ(z).setDuration(170).start();
+        }
+    }
+
+    private static boolean contains(View parent, View v) {
+        while (v != null) {
+            if (v == parent) return true;
+            if (!(v.getParent() instanceof View)) return false;
+            v = (View) v.getParent();
+        }
+        return false;
+    }
 }
