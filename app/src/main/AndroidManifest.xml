@@ -21,6 +21,9 @@
     <uses-permission android:name="android.permission.SET_TIME" />
     <uses-permission android:name="android.permission.SET_TIME_ZONE" />
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+    <!-- Format a USB drive (granted only when WOW OS is a system app). -->
+    <uses-permission android:name="android.permission.MOUNT_UNMOUNT_FILESYSTEMS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.MOUNT_FORMAT_FILESYSTEMS" tools:ignore="ProtectedPermissions" />
     <!-- Multitask switcher: list and resume other apps (REAL_GET_TASKS granted only on system install). -->
     <uses-permission android:name="android.permission.GET_TASKS" />
     <uses-permission android:name="android.permission.REORDER_TASKS" />

@@ -86,6 +86,15 @@ public class FilesActivity extends Activity {
     private final List<File> clip = new ArrayList<>();
     private boolean clipIsCut;
 
+    /** Sort (remembered) and multi-select state. */
+    private int sortMode;              // 0 name, 1 size, 2 date, 3 type
+    private boolean sortAsc = true;
+    private boolean selecting;
+    private final Set<String> selected = new HashSet<>();
+    private final List<Item> currentItems = new ArrayList<>();
+    private View selBar;
+    private TextView sortText, selCount;
+
     // ------------------------------------------------------------------ lifecycle
 
     @Override
@@ -107,6 +116,7 @@ public class FilesActivity extends Activity {
             @Override
             public void onItemClick(AdapterView<?> p, View v, int pos, long id) {
                 Item it = adapter.getItem(pos);
+                if (selecting) { toggleSel(it); return; }
                 if (it.dir) open(it.file, currentPlace); else openFile(it.file, false);
             }
         });
@@ -127,9 +137,31 @@ public class FilesActivity extends Activity {
         pasteButton.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { paste(); }
         });
-        for (int id : new int[]{R.id.btn_up, R.id.btn_new, R.id.btn_paste}) {
+        android.content.SharedPreferences sp = getSharedPreferences("files", MODE_PRIVATE);
+        sortMode = sp.getInt("sort_mode", 0);
+        sortAsc = sp.getBoolean("sort_asc", true);
+        selBar = findViewById(R.id.sel_bar);
+        sortText = findViewById(R.id.sort_text);
+        selCount = findViewById(R.id.sel_count);
+        findViewById(R.id.btn_sort).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { askSort(); } });
+        findViewById(R.id.btn_select).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { enterSelect(); } });
+        findViewById(R.id.sel_all).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { toggleSelectAll(); } });
+        findViewById(R.id.sel_copy).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { selectionToClip(false); } });
+        findViewById(R.id.sel_move).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { selectionToClip(true); } });
+        findViewById(R.id.sel_delete).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { deleteSelected(); } });
+        findViewById(R.id.sel_done).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { exitSelect(); } });
+        for (int id : new int[]{R.id.btn_up, R.id.btn_new, R.id.btn_paste, R.id.btn_sort, R.id.btn_select,
+                R.id.sel_all, R.id.sel_copy, R.id.sel_move, R.id.sel_delete, R.id.sel_done}) {
             findViewById(id).setOnFocusChangeListener(Tiles.LIFT_ON_FOCUS);
         }
+        updateSortLabel();
 
         IntentFilter media = new IntentFilter();
         media.addAction(Intent.ACTION_MEDIA_MOUNTED);
@@ -161,6 +193,7 @@ public class FilesActivity extends Activity {
 
     @Override
     public void onBackPressed() {
+        if (selecting) { exitSelect(); return; }
         if (current != null && currentPlace != null && !same(current, currentPlace.root)) {
             goUp();
         } else {
@@ -211,20 +244,22 @@ public class FilesActivity extends Activity {
         final File root;
         final int icon;
         final boolean volume;
+        final boolean removable;
 
-        Place(String name, File dir, File root, int icon, boolean volume) {
+        Place(String name, File dir, File root, int icon, boolean volume, boolean removable) {
             this.name = name;
             this.dir = dir;
             this.root = root;
             this.icon = icon;
             this.volume = volume;
+            this.removable = removable;
         }
     }
 
     private void buildPlaces() {
         places.clear();
         File internal = Environment.getExternalStorageDirectory();
-        places.add(new Place("Internal storage", internal, internal, R.drawable.ic_phone_storage, true));
+        places.add(new Place("Internal storage", internal, internal, R.drawable.ic_phone_storage, true, false));
 
         for (File usb : usbRoots()) {
             String label = "USB disk";
@@ -233,7 +268,7 @@ public class FilesActivity extends Activity {
                 StorageVolume v = sm == null ? null : sm.getStorageVolume(usb);
                 if (v != null && v.getDescription(this) != null) label = v.getDescription(this);
             } catch (Exception ignored) { }
-            places.add(new Place(label, usb, usb, R.drawable.ic_usb, true));
+            places.add(new Place(label, usb, usb, R.drawable.ic_usb, true, true));
         }
 
         addShortcut("Downloads", Environment.DIRECTORY_DOWNLOADS, R.drawable.ic_download, internal);
@@ -246,7 +281,7 @@ public class FilesActivity extends Activity {
 
     private void addShortcut(String name, String type, int icon, File root) {
         File d = Environment.getExternalStoragePublicDirectory(type);
-        if (d != null && d.isDirectory()) places.add(new Place(name, d, root, icon, false));
+        if (d != null && d.isDirectory()) places.add(new Place(name, d, root, icon, false, false));
     }
 
     /** Mounted removable volumes (USB disks, SD cards). */
@@ -310,6 +345,11 @@ public class FilesActivity extends Activity {
                     list.requestFocus();
                 }
             });
+            if (p.removable) {
+                row.setOnLongClickListener(new View.OnLongClickListener() {
+                    @Override public boolean onLongClick(View v) { confirmFormat(p); return true; }
+                });
+            }
             placesView.addView(row);
         }
     }
@@ -366,18 +406,15 @@ public class FilesActivity extends Activity {
                 if (files != null) {
                     for (File f : files) if (!f.getName().startsWith(".")) items.add(new Item(f));
                 }
-                Collections.sort(items, new Comparator<Item>() {
-                    @Override
-                    public int compare(Item a, Item b) {
-                        if (a.dir != b.dir) return a.dir ? -1 : 1;
-                        return a.name.compareToIgnoreCase(b.name);
-                    }
-                });
+                Collections.sort(items, comparator());
                 final boolean unreadable = files == null;
                 ui.post(new Runnable() {
                     @Override
                     public void run() {
                         if (gen != loadGeneration) return;
+                        if (selecting) exitSelect();
+                        currentItems.clear();
+                        currentItems.addAll(items);
                         adapter.set(items);
                         if (unreadable) emptyView.setText("This folder can't be opened");
                         else emptyView.setText("Empty folder");
@@ -668,6 +705,202 @@ public class FilesActivity extends Activity {
         return f.delete() && ok;
     }
 
+    // ------------------------------------------------------------------ sorting
+
+    private Comparator<Item> comparator() {
+        return new Comparator<Item>() {
+            @Override public int compare(Item a, Item b) {
+                if (a.dir != b.dir) return a.dir ? -1 : 1;   // folders always first
+                int c;
+                switch (sortMode) {
+                    case 1: c = Long.compare(a.size, b.size); break;
+                    case 2: c = Long.compare(a.modified, b.modified); break;
+                    case 3:
+                        c = ext(a.name).compareTo(ext(b.name));
+                        if (c == 0) c = a.name.compareToIgnoreCase(b.name);
+                        break;
+                    default: c = a.name.compareToIgnoreCase(b.name);
+                }
+                return sortAsc ? c : -c;
+            }
+        };
+    }
+
+    private static final String[] SORT_NAMES = {"Name", "Size", "Date", "Type"};
+
+    private void updateSortLabel() {
+        if (sortText != null) sortText.setText(SORT_NAMES[sortMode] + (sortAsc ? " \u2191" : " \u2193"));
+    }
+
+    private void askSort() {
+        final String[] opts = new String[8];
+        for (int i = 0; i < 4; i++) {
+            opts[i * 2] = SORT_NAMES[i] + " \u2191";
+            opts[i * 2 + 1] = SORT_NAMES[i] + " \u2193";
+        }
+        showGlass(new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle("Sort by")
+                .setItems(opts, new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int which) {
+                        sortMode = which / 2;
+                        sortAsc = which % 2 == 0;
+                        getSharedPreferences("files", MODE_PRIVATE).edit()
+                                .putInt("sort_mode", sortMode).putBoolean("sort_asc", sortAsc).apply();
+                        updateSortLabel();
+                        resort();
+                    }
+                }).create());
+    }
+
+    private void resort() {
+        Collections.sort(currentItems, comparator());
+        adapter.set(new ArrayList<>(currentItems));
+    }
+
+    // ------------------------------------------------------------------ multi-select
+
+    private void enterSelect() {
+        if (currentItems.isEmpty()) { toast("Nothing to select here"); return; }
+        selecting = true;
+        selected.clear();
+        showActionButtons(false);
+        selBar.setVisibility(View.VISIBLE);
+        updateSelCount();
+        adapter.notifyDataSetChanged();
+        list.requestFocus();
+    }
+
+    private void exitSelect() {
+        selecting = false;
+        selected.clear();
+        showActionButtons(true);
+        selBar.setVisibility(View.GONE);
+        adapter.notifyDataSetChanged();
+    }
+
+    private void showActionButtons(boolean show) {
+        int vis = show ? View.VISIBLE : View.GONE;
+        findViewById(R.id.btn_sort).setVisibility(vis);
+        findViewById(R.id.btn_select).setVisibility(vis);
+        findViewById(R.id.btn_up).setVisibility(vis);
+        findViewById(R.id.btn_new).setVisibility(vis);
+    }
+
+    private void toggleSel(Item it) {
+        String key = it.file.getAbsolutePath();
+        if (!selected.remove(key)) selected.add(key);
+        updateSelCount();
+        adapter.notifyDataSetChanged();
+    }
+
+    private void toggleSelectAll() {
+        if (selected.size() == currentItems.size()) selected.clear();
+        else for (Item it : currentItems) selected.add(it.file.getAbsolutePath());
+        updateSelCount();
+        adapter.notifyDataSetChanged();
+    }
+
+    private void updateSelCount() {
+        selCount.setText(selected.size() + " selected");
+    }
+
+    private List<File> selectedFiles() {
+        List<File> out = new ArrayList<>();
+        for (Item it : currentItems) if (selected.contains(it.file.getAbsolutePath())) out.add(it.file);
+        return out;
+    }
+
+    private void selectionToClip(boolean cut) {
+        List<File> files = selectedFiles();
+        if (files.isEmpty()) { toast("Select some files first"); return; }
+        clip.clear();
+        clip.addAll(files);
+        clipIsCut = cut;
+        pasteText.setText(cut ? "Move here" : "Paste here");
+        pasteButton.setVisibility(View.VISIBLE);
+        exitSelect();
+        toast(files.size() + (cut ? " to move" : " to copy") + ". Open the destination folder and press "
+                + (cut ? "Move here." : "Paste here."));
+    }
+
+    private void deleteSelected() {
+        final List<File> files = selectedFiles();
+        if (files.isEmpty()) { toast("Select some files first"); return; }
+        showGlass(new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle("Delete " + files.size() + " item" + (files.size() == 1 ? "" : "s") + "?")
+                .setMessage("This can't be undone.")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Delete", new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int w) {
+                        exitSelect();
+                        runJob("Deleting…", new Job() {
+                            @Override public String run(Progress p) {
+                                int ok = 0;
+                                for (File f : files) { p.update(f.getName()); if (deleteAll(f)) ok++; }
+                                return ok == files.size() ? "Deleted " + ok
+                                        : "Deleted " + ok + " of " + files.size() + " (some couldn't be removed)";
+                            }
+                        });
+                    }
+                }).create());
+    }
+
+    // ------------------------------------------------------------------ format a drive
+
+    private void confirmFormat(final Place p) {
+        showGlass(new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle("Format " + p.name + "?")
+                .setMessage("This ERASES EVERYTHING on the drive. It cannot be undone.")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Erase everything", new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int w) {
+                        showGlass(new AlertDialog.Builder(FilesActivity.this, android.R.style.Theme_Material_Dialog_Alert)
+                                .setTitle("Are you sure?")
+                                .setMessage("Last chance: everything on " + p.name + " will be wiped.")
+                                .setNegativeButton("Cancel", null)
+                                .setPositiveButton("Format now", new DialogInterface.OnClickListener() {
+                                    @Override public void onClick(DialogInterface dd, int ww) {
+                                        runJob("Formatting " + p.name + "…", new Job() {
+                                            @Override public String run(Progress pr) { return formatDrive(p.dir); }
+                                        });
+                                    }
+                                }).create());
+                    }
+                }).create());
+    }
+
+    /** Best-effort format via the system StorageManager (needs the system install). */
+    private String formatDrive(File dir) {
+        try {
+            StorageManager sm = (StorageManager) getSystemService(Context.STORAGE_SERVICE);
+            if (sm == null) return "Storage service unavailable";
+            StorageVolume v = null;
+            try { v = sm.getStorageVolume(dir); } catch (Throwable ignored) { }
+            String id = null;
+            if (v != null) {
+                try { id = (String) StorageVolume.class.getMethod("getId").invoke(v); } catch (Throwable ignored) { }
+            }
+            // Try the hidden StorageManager.format(String) with the id, then the path.
+            for (String arg : new String[]{id, dir.getAbsolutePath()}) {
+                if (arg == null) continue;
+                try {
+                    Method m = StorageManager.class.getMethod("format", String.class);
+                    m.invoke(sm, arg);
+                    return "Formatted " + dir.getName();
+                } catch (NoSuchMethodException nsme) {
+                    break;   // method doesn't exist on this build; stop trying
+                } catch (Throwable t) {
+                    // method exists but failed (permission/busy) — report it
+                    String msg = t.getCause() != null ? t.getCause().getMessage() : t.getMessage();
+                    return "Couldn't format: " + (msg == null ? "not permitted on this TV" : msg);
+                }
+            }
+            return "This TV's Android doesn't allow formatting from an app. Format the drive on a computer instead.";
+        } catch (Throwable t) {
+            return "Couldn't format: " + t.getMessage();
+        }
+    }
+
     // ------------------------------------------------------------------ UI helpers
 
     private void askText(String title, String hint, String initial, final TextResult result) {
@@ -753,6 +986,16 @@ public class FilesActivity extends Activity {
                     ? (it.children == 1 ? "1 item" : it.children + " items") + " · " + date
                     : Formatter.formatShortFileSize(FilesActivity.this, it.size) + " · " + date;
             ((TextView) v.findViewById(R.id.meta)).setText(meta);
+            ImageView check = v.findViewById(R.id.check);
+            if (selecting) {
+                boolean on = selected.contains(it.file.getAbsolutePath());
+                check.setVisibility(View.VISIBLE);
+                check.setAlpha(on ? 1f : 0.25f);
+                v.setAlpha(on ? 1f : 0.7f);
+            } else {
+                check.setVisibility(View.GONE);
+                v.setAlpha(1f);
+            }
             return v;
         }
     }

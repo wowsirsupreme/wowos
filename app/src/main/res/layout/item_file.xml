@@ -43,4 +43,12 @@
             android:textColor="@color/text_faint"
             android:textSize="12sp" />
     </LinearLayout>
+    <ImageView
+        android:id="@+id/check"
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:layout_marginStart="10dp"
+        android:src="@drawable/ic_check"
+        android:visibility="gone" />
+
 </LinearLayout>

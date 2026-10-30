@@ -11,7 +11,7 @@ Home screen is a PS5-style layout: a row of app tiles along the top, and the foc
 - Quick row: Settings, Network, Files, Mirror, Play Store, Browser, Hidden apps.
 - Favourites row you can pin, reorder and unpin.
 - All apps in two rows that scroll left to right, with TV banners where apps provide them.
-- WOW Files (built in, also listed as its own app): internal storage and USB disks with free space, Downloads/Movies/Music/Pictures shortcuts, open videos, music, photos and documents, install APKs, copy, move, rename, delete and new folder. Hold OK or press Menu on a file for options.
+- WOW Files (built in, also listed as its own app): sort by name/size/date/type (remembered), multi-select for batch copy/move/delete (Select button), format a USB drive (hold OK on it in the sidebar, system install only), internal storage and USB disks with free space, Downloads/Movies/Music/Pictures shortcuts, open videos, music, photos and documents, install APKs, copy, move, rename, delete and new folder. Hold OK or press Menu on a file for options.
 - Hold OK (or press Menu) on any app: pin/unpin, move left/right, hide, app info.
 - Time-aware greeting with rotating original messages on courage and letting your light shine. Add your own quotes under Personalise; they stay on the box.
 - Life Planner: alarms (ring until dismissed, snooze 10 min) and reminders (short chime), once or repeating on chosen days, with a Next up chip on the home screen.
