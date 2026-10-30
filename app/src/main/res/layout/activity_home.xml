@@ -133,8 +133,8 @@
         android:layout_height="wrap_content"
         android:clipChildren="false"
         android:clipToPadding="false"
-        android:paddingTop="18dp"
-        android:paddingBottom="18dp"
+        android:paddingTop="30dp"
+        android:paddingBottom="30dp"
         android:scrollbars="none"
         android:visibility="gone">
 
@@ -144,8 +144,8 @@
             android:layout_height="wrap_content"
             android:clipChildren="false"
             android:orientation="horizontal"
-            android:paddingStart="30dp"
-            android:paddingEnd="30dp" />
+            android:paddingStart="40dp"
+            android:paddingEnd="40dp" />
     </HorizontalScrollView>
 
     <!-- Quick actions -->
@@ -157,8 +157,8 @@
         android:layout_height="wrap_content"
         android:clipChildren="false"
         android:clipToPadding="false"
-        android:paddingTop="18dp"
-        android:paddingBottom="18dp"
+        android:paddingTop="30dp"
+        android:paddingBottom="30dp"
         android:scrollbars="none">
 
         <LinearLayout
@@ -167,8 +167,8 @@
             android:layout_height="wrap_content"
             android:clipChildren="false"
             android:orientation="horizontal"
-            android:paddingStart="30dp"
-            android:paddingEnd="30dp" />
+            android:paddingStart="40dp"
+            android:paddingEnd="40dp" />
     </HorizontalScrollView>
 
     <!-- Favourites -->
@@ -180,8 +180,8 @@
         android:layout_height="wrap_content"
         android:clipChildren="false"
         android:clipToPadding="false"
-        android:paddingTop="18dp"
-        android:paddingBottom="18dp"
+        android:paddingTop="30dp"
+        android:paddingBottom="30dp"
         android:scrollbars="none">
 
         <LinearLayout
@@ -190,8 +190,8 @@
             android:layout_height="wrap_content"
             android:clipChildren="false"
             android:orientation="horizontal"
-            android:paddingStart="30dp"
-            android:paddingEnd="30dp" />
+            android:paddingStart="40dp"
+            android:paddingEnd="40dp" />
     </HorizontalScrollView>
 
     <TextView
@@ -214,8 +214,8 @@
         android:layout_height="wrap_content"
         android:clipChildren="false"
         android:clipToPadding="false"
-        android:paddingTop="18dp"
-        android:paddingBottom="18dp"
+        android:paddingTop="30dp"
+        android:paddingBottom="30dp"
         android:scrollbars="none">
 
         <LinearLayout
@@ -224,8 +224,8 @@
             android:layout_height="wrap_content"
             android:clipChildren="false"
             android:orientation="horizontal"
-            android:paddingStart="30dp"
-            android:paddingEnd="30dp" />
+            android:paddingStart="40dp"
+            android:paddingEnd="40dp" />
     </HorizontalScrollView>
 </LinearLayout>
 </ScrollView>

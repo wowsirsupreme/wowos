@@ -81,7 +81,8 @@ final class Tiles {
     // The focused tile swells most and its neighbours bulge less, falling off with
     // distance, so focus moves along the row like a wave under a Dock.
 
-    private static final float[] DOCK_SCALE = {1.18f, 1.09f, 1.035f};
+    // Focused tile blows up big (PS5-style); the two nearest neighbours bulge a little.
+    private static final float[] DOCK_SCALE = {1.32f, 1.10f, 1.04f};
 
     /** A focus listener that magnifies the whole row around whatever tile has focus. */
     static View.OnFocusChangeListener dock(final android.widget.LinearLayout row) {
@@ -104,9 +105,13 @@ final class Tiles {
             if (fi >= 0) {
                 int dist = Math.abs(i - fi);
                 scale = dist < DOCK_SCALE.length ? DOCK_SCALE[dist] : 1f;
-                z = dist == 0 ? 16f : 0f;
+                z = dist == 0 ? 30f : (dist == 1 ? 8f : 0f);
             }
-            c.animate().scaleX(scale).scaleY(scale).translationZ(z).setDuration(170).start();
+            // Elevation makes the blown-up tile draw ABOVE its neighbours, not behind them.
+            c.setElevation(z);
+            c.animate().scaleX(scale).scaleY(scale).translationZ(z)
+                    .setDuration(190).setInterpolator(new android.view.animation.OvershootInterpolator(1.6f))
+                    .start();
         }
     }
 
