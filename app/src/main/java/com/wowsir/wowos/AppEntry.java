@@ -47,6 +47,18 @@ final class AppEntry {
         return artIsBanner;
     }
 
+    /** The app's launcher icon (always the icon, never the banner). */
+    android.graphics.drawable.Drawable newIcon(PackageManager pm, Resources res) {
+        try {
+            android.graphics.drawable.Drawable d = info.loadIcon(pm);
+            if (d == null) return null;
+            android.graphics.drawable.Drawable.ConstantState cs = d.getConstantState();
+            return cs != null ? cs.newDrawable(res) : d;
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
     /** A fresh drawable instance (so two views can show the same app safely). */
     Drawable newArt(PackageManager pm, Resources res) {
         loadArt(pm);

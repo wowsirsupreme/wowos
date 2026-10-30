@@ -4,6 +4,9 @@ A lightweight home screen (launcher) for HiSilicon Android TVs (this one is a Sa
 
 ## What it does
 
+Home screen is a PS5-style layout: a row of app tiles along the top, and the focused app's banner art fills the screen with a big title and an Open button. Settings and a menu (Files, mirror, planner, connections, inputs, alerts, personalise, hidden apps, running apps) sit top-right.
+
+
 - Header with clock, date, network status and USB disk status (shows "USB checking…" while a slow disk is being scanned, then the disk name when it is ready).
 - Quick row: Settings, Network, Files, Mirror, Play Store, Browser, Hidden apps.
 - Favourites row you can pin, reorder and unpin.

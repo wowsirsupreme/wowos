@@ -10,6 +10,10 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
@@ -24,7 +28,6 @@ import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ScrollView;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -36,47 +39,43 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * PS5-style home: a row of app tiles along the top; focusing an app fills the
+ * screen with its banner art and shows a big title plus an Open button, with
+ * Settings and a menu in the top-right. All the device logic (launching,
+ * pinning, hiding, inputs, idle, time, status) is unchanged.
+ */
 public class HomeActivity extends Activity {
 
     private static final long STATUS_REFRESH_MS = 8000;
+    private static final long IDLE_MS = 90_000;
+    private static final long HERO_DELAY_MS = 170;
 
     private PackageManager pm;
+    private Resources res;
     private LayoutInflater inflater;
     private Prefs prefs;
     private final Handler ui = new Handler(Looper.getMainLooper());
 
-    private LinearLayout quickRow;
-    private LinearLayout inputsRow;
-    private View inputsScroll;
-    private View inputsSection;
-    private LinearLayout favRow;
-    private HorizontalScrollView quickScroll;
-    private HorizontalScrollView favScroll;
-    private TextView favHint;
-    private LinearLayout allRow;
-    private HorizontalScrollView allScroll;
-    private ScrollView page;
+    private LinearLayout appRow;
+    private HorizontalScrollView appScroll;
+    private ImageView heroA, heroB, heroIcon;
+    private boolean heroShowingA = true;
+    private TextView heroTitle, heroTag;
+    private View btnOpen, btnOptions, btnSettings, btnMenu;
 
-    private ImageView netDot;
-    private TextView netText;
-    private ImageView usbDot;
-    private TextView usbText;
-    private TextView greetView;
-    private TextView messageView;
+    private ImageView netDot, usbDot;
+    private TextView netText, usbText, nextText;
     private View nextChip;
-    private TextView nextText;
-    private String lastMessage;
-    private static final long MESSAGE_MS = 45_000;
-    private static final long IDLE_MS = 90_000;
 
     private final List<AppEntry> allApps = new ArrayList<>();
     private final Map<String, AppEntry> byPkg = new HashMap<>();
+    private AppEntry current;
     private boolean loading;
 
     // ------------------------------------------------------------------ lifecycle
@@ -87,36 +86,48 @@ public class HomeActivity extends Activity {
         setContentView(R.layout.activity_home);
 
         pm = getPackageManager();
+        res = getResources();
         inflater = LayoutInflater.from(this);
         prefs = new Prefs(this);
 
-        quickRow = findViewById(R.id.quick_row);
-        inputsRow = findViewById(R.id.inputs_row);
-        inputsScroll = findViewById(R.id.inputs_scroll);
-        inputsSection = findViewById(R.id.sec_inputs);
-        favRow = findViewById(R.id.fav_row);
-        quickScroll = findViewById(R.id.quick_scroll);
-        favScroll = findViewById(R.id.fav_scroll);
-        favHint = findViewById(R.id.fav_hint);
-        allRow = findViewById(R.id.all_row);
-        allScroll = findViewById(R.id.all_scroll);
-        page = findViewById(R.id.page);
+        appRow = findViewById(R.id.app_row);
+        appScroll = findViewById(R.id.app_scroll);
+        heroA = findViewById(R.id.hero_a);
+        heroB = findViewById(R.id.hero_b);
+        heroIcon = findViewById(R.id.hero_icon);
+        heroTitle = findViewById(R.id.hero_title);
+        heroTag = findViewById(R.id.hero_tag);
+        btnOpen = findViewById(R.id.btn_open);
+        btnOptions = findViewById(R.id.btn_options);
+        btnSettings = findViewById(R.id.btn_settings);
+        btnMenu = findViewById(R.id.btn_menu);
         netDot = findViewById(R.id.net_dot);
         netText = findViewById(R.id.net_text);
         usbDot = findViewById(R.id.usb_dot);
         usbText = findViewById(R.id.usb_text);
-        greetView = findViewById(R.id.greet);
-        messageView = findViewById(R.id.message);
         nextChip = findViewById(R.id.next_chip);
         nextText = findViewById(R.id.next_text);
 
-        buildQuickRow();
-        buildInputsRow();
+        btnOpen.setOnFocusChangeListener(Tiles.LIFT_ON_FOCUS);
+        btnOptions.setOnFocusChangeListener(Tiles.LIFT_ON_FOCUS);
+        btnSettings.setOnFocusChangeListener(Tiles.LIFT_ON_FOCUS);
+        btnMenu.setOnFocusChangeListener(Tiles.LIFT_ON_FOCUS);
+        btnOpen.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { if (current != null) launch(current); }
+        });
+        btnOptions.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { if (current != null) showAppOptions(current); }
+        });
+        btnSettings.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { openSettings(); }
+        });
+        btnMenu.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { showMenu(); }
+        });
 
         registerReceiver(packageReceiver, packageFilter());
         registerReceiver(statusReceiver, statusFilter());
-        IntentFilter media = mediaFilter();
-        registerReceiver(statusReceiver, media);
+        registerReceiver(statusReceiver, mediaFilter());
 
         reloadApps();
     }
@@ -127,8 +138,6 @@ public class HomeActivity extends Activity {
         TimeSync.syncSoon(this);
         refreshStatus();
         ui.postDelayed(statusTick, STATUS_REFRESH_MS);
-        showMessage(false);
-        ui.postDelayed(messageTick, MESSAGE_MS);
         scheduleIdle();
     }
 
@@ -136,7 +145,6 @@ public class HomeActivity extends Activity {
     protected void onPause() {
         super.onPause();
         ui.removeCallbacks(statusTick);
-        ui.removeCallbacks(messageTick);
         ui.removeCallbacks(idleRunnable);
     }
 
@@ -147,21 +155,20 @@ public class HomeActivity extends Activity {
         try { unregisterReceiver(statusReceiver); } catch (Exception ignored) { }
     }
 
-    /** Home pressed while already home: go back to the top. */
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        quickScroll.smoothScrollTo(0, 0);
-        favScroll.smoothScrollTo(0, 0);
-        allScroll.smoothScrollTo(0, 0);
-        page.smoothScrollTo(0, 0);
-        if (quickRow.getChildCount() > 0) quickRow.getChildAt(0).requestFocus();
+        focusFirstApp();
     }
 
-    /** A launcher has nowhere to go "back" to. */
     @Override
     public void onBackPressed() {
-        if (quickRow.getChildCount() > 0) quickRow.getChildAt(0).requestFocus();
+        focusFirstApp();
+    }
+
+    private void focusFirstApp() {
+        appScroll.smoothScrollTo(0, 0);
+        if (appRow.getChildCount() > 0) appRow.getChildAt(0).requestFocus();
     }
 
     @Override
@@ -182,19 +189,15 @@ public class HomeActivity extends Activity {
         }
     };
 
-    /** Menu opens app options; the App-switch key opens the multitask switcher. */
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_APP_SWITCH) {
             openRecents();
             return true;
         }
-        if (keyCode == KeyEvent.KEYCODE_MENU) {
-            View f = getCurrentFocus();
-            if (f != null && f.getTag() instanceof AppEntry) {
-                showAppOptions((AppEntry) f.getTag(), f.getParent() == favRow);
-                return true;
-            }
+        if (keyCode == KeyEvent.KEYCODE_MENU && current != null) {
+            showAppOptions(current);
+            return true;
         }
         return super.onKeyDown(keyCode, event);
     }
@@ -205,26 +208,23 @@ public class HomeActivity extends Activity {
         if (loading) return;
         loading = true;
         new Thread(new Runnable() {
-            @Override
-            public void run() {
+            @Override public void run() {
                 final List<AppEntry> list = queryApps();
                 ui.post(new Runnable() {
-                    @Override
-                    public void run() {
+                    @Override public void run() {
                         loading = false;
                         allApps.clear();
                         allApps.addAll(list);
                         byPkg.clear();
                         for (AppEntry e : list) byPkg.put(e.pkg, e);
                         prefs.seedIfNeeded(byPkg.keySet());
-                        render();
+                        renderRow();
                     }
                 });
             }
         }, "wowos-apps").start();
     }
 
-    /** TV (leanback) entries first, then phone launcher entries for apps without one. */
     private List<AppEntry> queryApps() {
         Map<String, AppEntry> map = new HashMap<>();
         String[] cats = {Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER};
@@ -246,92 +246,129 @@ public class HomeActivity extends Activity {
         }
         List<AppEntry> list = new ArrayList<>(map.values());
         Collections.sort(list, new Comparator<AppEntry>() {
-            @Override
-            public int compare(AppEntry a, AppEntry b) {
+            @Override public int compare(AppEntry a, AppEntry b) {
                 return a.label.compareToIgnoreCase(b.label);
             }
         });
         return list;
     }
 
-    private void render() {
+    /** Pinned apps first (in pin order), then everyone else alphabetically; hidden excluded. */
+    private List<AppEntry> ordered() {
         Set<String> hidden = prefs.hidden();
-        List<AppEntry> visible = new ArrayList<>();
-        for (AppEntry e : allApps) if (!hidden.contains(e.pkg)) visible.add(e);
-        renderAll(visible);
-        renderFavs();
-    }
-
-    /** All apps as two rows that scroll left to right. */
-    private void renderAll(List<AppEntry> visible) {
-        View focused = getCurrentFocus();
-        boolean hadFocus = focused != null && focused.getParent() != null
-                && focused.getParent().getParent() == allRow;
-
-        allRow.removeAllViews();
-        int width = dp(168);
-        int gap = dp(18);
-        LinearLayout column = null;
-        for (int i = 0; i < visible.size(); i++) {
-            if (i % 2 == 0) {
-                column = new LinearLayout(this);
-                column.setOrientation(LinearLayout.VERTICAL);
-                column.setClipChildren(false);
-                LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-                clp.setMarginEnd(gap);
-                allRow.addView(column, clp);
-            }
-            View tile = makeAppTile(visible.get(i), false);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(width, ViewGroup.LayoutParams.WRAP_CONTENT);
-            if (i % 2 == 0) lp.bottomMargin = gap;
-            column.addView(tile, lp);
-        }
-        if (hadFocus && allRow.getChildCount() > 0) {
-            ((ViewGroup) allRow.getChildAt(0)).getChildAt(0).requestFocus();
-        }
-    }
-
-    private View makeAppTile(final AppEntry e, final boolean inFavRow) {
-        View tile = inflater.inflate(R.layout.item_app, allRow, false);
-        tile.setFocusable(true);
-        tile.setTag(e);
-        Tiles.bind(tile, e, pm);
-        tile.setOnFocusChangeListener(Tiles.LIFT_ON_FOCUS);
-        tile.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { launch(e); }
-        });
-        tile.setOnLongClickListener(new View.OnLongClickListener() {
-            @Override public boolean onLongClick(View v) { showAppOptions(e, inFavRow); return true; }
-        });
-        return tile;
-    }
-
-    private void renderFavs() {
-        View focused = getCurrentFocus();
-        boolean favHadFocus = focused != null && focused.getParent() == favRow;
-        int focusIndex = favHadFocus ? favRow.indexOfChild(focused) : -1;
-
-        favRow.removeAllViews();
-        int px = dp(176);
+        List<AppEntry> out = new ArrayList<>();
         for (String p : prefs.favs()) {
             AppEntry e = byPkg.get(p);
-            if (e == null) continue;
-            View tile = makeAppTile(e, true);
-            tile.setOnFocusChangeListener(Tiles.dock(favRow));
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(px, ViewGroup.LayoutParams.WRAP_CONTENT);
-            lp.setMarginEnd(dp(18));
-            favRow.addView(tile, lp);
+            if (e != null && !hidden.contains(p)) out.add(e);
         }
-        boolean empty = favRow.getChildCount() == 0;
-        favScroll.setVisibility(empty ? View.GONE : View.VISIBLE);
-        favHint.setVisibility(empty ? View.VISIBLE : View.GONE);
+        for (AppEntry e : allApps) {
+            if (!hidden.contains(e.pkg) && !out.contains(e)) out.add(e);
+        }
+        return out;
+    }
 
-        if (favHadFocus && !empty) {
-            int i = Math.max(0, Math.min(focusIndex, favRow.getChildCount() - 1));
-            favRow.getChildAt(i).requestFocus();
+    private void renderRow() {
+        String keepFocusPkg = current != null ? current.pkg : null;
+        appRow.removeAllViews();
+        List<AppEntry> apps = ordered();
+        for (final AppEntry e : apps) {
+            View tile = inflater.inflate(R.layout.item_ps5_tile, appRow, false);
+            ImageView icon = tile.findViewById(R.id.icon);
+            try { icon.setImageDrawable(e.newIcon(pm, res)); } catch (Throwable ignored) { }
+            tile.setFocusable(true);
+            tile.setTag(e);
+            tile.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+                @Override public void onFocusChange(View v, boolean hasFocus) {
+                    v.animate().scaleX(hasFocus ? 1.14f : 1f).scaleY(hasFocus ? 1.14f : 1f)
+                            .translationZ(hasFocus ? 20f : 0f).setDuration(160).start();
+                    if (hasFocus) setCurrent(e);
+                }
+            });
+            tile.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) { launch(e); }
+            });
+            tile.setOnLongClickListener(new View.OnLongClickListener() {
+                @Override public boolean onLongClick(View v) { showAppOptions(e); return true; }
+            });
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(124), dp(124));
+            lp.setMarginEnd(dp(16));
+            appRow.addView(tile, lp);
+        }
+        // Keep the user where they were after a refresh, else focus the first app.
+        View focusTarget = null;
+        if (keepFocusPkg != null) {
+            for (int i = 0; i < appRow.getChildCount(); i++) {
+                Object t = appRow.getChildAt(i).getTag();
+                if (t instanceof AppEntry && ((AppEntry) t).pkg.equals(keepFocusPkg)) {
+                    focusTarget = appRow.getChildAt(i); break;
+                }
+            }
+        }
+        if (focusTarget == null && appRow.getChildCount() > 0) focusTarget = appRow.getChildAt(0);
+        if (focusTarget != null) focusTarget.requestFocus();
+    }
+
+    // ------------------------------------------------------------------ hero
+
+    private void setCurrent(AppEntry e) {
+        current = e;
+        heroTitle.setText(e.label);
+        boolean fav = prefs.isFav(e.pkg);
+        heroTag.setVisibility(fav ? View.VISIBLE : View.GONE);
+        if (fav) heroTag.setText("PINNED");
+        ui.removeCallbacks(heroLoad);
+        ui.postDelayed(heroLoad, HERO_DELAY_MS);
+    }
+
+    private final Runnable heroLoad = new Runnable() {
+        @Override public void run() { loadHero(current); }
+    };
+
+    private void loadHero(final AppEntry e) {
+        if (e == null) return;
+        Drawable art = null;
+        try {
+            if (e.hasBanner(pm)) art = scaleHero(e.newArt(pm, res));
+        } catch (Throwable ignored) { }
+
+        ImageView next = heroShowingA ? heroB : heroA;
+        ImageView cur = heroShowingA ? heroA : heroB;
+        try {
+            next.setImageDrawable(art);
+        } catch (Throwable t) {
+            next.setImageDrawable(null);
+        }
+        next.animate().alpha(art != null ? 1f : 0f).setDuration(350).start();
+        cur.animate().alpha(0f).setDuration(350).start();
+        heroShowingA = !heroShowingA;
+
+        // No banner: show the app's icon big and faint in the centre instead.
+        if (art == null) {
+            try { heroIcon.setImageDrawable(e.newIcon(pm, res)); } catch (Throwable ignored) { }
+            heroIcon.animate().alpha(0.5f).setDuration(350).start();
+        } else {
+            heroIcon.animate().alpha(0f).setDuration(250).start();
         }
     }
+
+    /** Shrink a big banner bitmap to the screen so the hero can't exhaust the heap. */
+    private Drawable scaleHero(Drawable d) {
+        if (!(d instanceof BitmapDrawable)) return d;
+        try {
+            Bitmap b = ((BitmapDrawable) d).getBitmap();
+            if (b == null) return d;
+            int maxW = res.getDisplayMetrics().widthPixels;
+            int maxH = res.getDisplayMetrics().heightPixels;
+            if (b.getWidth() <= maxW && b.getHeight() <= maxH) return d;
+            float scale = Math.min((float) maxW / b.getWidth(), (float) maxH / b.getHeight());
+            return new BitmapDrawable(res, Bitmap.createScaledBitmap(b,
+                    Math.max(1, (int) (b.getWidth() * scale)), Math.max(1, (int) (b.getHeight() * scale)), true));
+        } catch (Throwable t) {
+            return d;
+        }
+    }
+
+    // ------------------------------------------------------------------ launch
 
     private void launch(AppEntry e) {
         Intent i = new Intent(Intent.ACTION_MAIN)
@@ -350,44 +387,38 @@ public class HomeActivity extends Activity {
 
     // ------------------------------------------------------------------ options dialog
 
-    private void showAppOptions(final AppEntry e, final boolean inFavRow) {
+    private void showAppOptions(final AppEntry e) {
         final boolean fav = prefs.isFav(e.pkg);
         final List<String> labels = new ArrayList<>();
         final List<Runnable> actions = new ArrayList<>();
 
-        labels.add(fav ? "Unpin from favourites" : "Pin to favourites");
-        actions.add(new Runnable() { @Override public void run() { prefs.toggleFav(e.pkg); renderFavs(); } });
+        labels.add("Open");
+        actions.add(new Runnable() { @Override public void run() { launch(e); } });
+
+        labels.add(fav ? "Unpin (move right)" : "Pin to front");
+        actions.add(new Runnable() { @Override public void run() { prefs.toggleFav(e.pkg); renderRow(); } });
 
         if (fav) {
             labels.add("Move left");
-            actions.add(new Runnable() { @Override public void run() { prefs.moveFav(e.pkg, -1); renderFavs(); } });
+            actions.add(new Runnable() { @Override public void run() { prefs.moveFav(e.pkg, -1); renderRow(); } });
             labels.add("Move right");
-            actions.add(new Runnable() { @Override public void run() { prefs.moveFav(e.pkg, 1); renderFavs(); } });
+            actions.add(new Runnable() { @Override public void run() { prefs.moveFav(e.pkg, 1); renderRow(); } });
         }
 
         labels.add("Hide app");
         actions.add(new Runnable() { @Override public void run() {
             prefs.setHidden(e.pkg, true);
-            render();
-            toast(e.label + " hidden. Open \"Hidden\" in Quick to bring it back.");
+            renderRow();
+            toast(e.label + " hidden. Menu → Hidden apps to bring it back.");
         } });
 
         labels.add("App info");
         actions.add(new Runnable() { @Override public void run() {
             Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + e.pkg));
-            if (!tryStart(i)) toast("App info isn't available on this box");
+            if (!tryStart(i)) toast("App info isn't available on this TV");
         } });
 
-        AlertDialog d = new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
-                .setTitle(e.label)
-                .setItems(labels.toArray(new String[0]), new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        actions.get(which).run();
-                    }
-                })
-                .create();
-        showGlass(d);
+        pick(e.label, labels, actions);
     }
 
     private void showHiddenManager() {
@@ -400,19 +431,71 @@ public class HomeActivity extends Activity {
         }
         String[] names = new String[list.size()];
         for (int i = 0; i < list.size(); i++) names[i] = list.get(i).label;
-
         AlertDialog d = new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
-                .setTitle("Tap an app to show it again")
+                .setTitle("Show an app again")
                 .setItems(names, new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        AppEntry e = list.get(which);
-                        prefs.setHidden(e.pkg, false);
-                        render();
-                        toast(e.label + " is back in All apps");
+                    @Override public void onClick(DialogInterface dialog, int which) {
+                        prefs.setHidden(list.get(which).pkg, false);
+                        renderRow();
                     }
-                })
-                .create();
+                }).create();
+        showGlass(d);
+    }
+
+    // ------------------------------------------------------------------ top-right menu
+
+    private void showMenu() {
+        final List<String> labels = new ArrayList<>();
+        final List<Runnable> actions = new ArrayList<>();
+
+        // Input switching first, when this TV supports it.
+        if (InputSwitch.available(this)) {
+            for (final InputSwitch.Input in : InputSwitch.inputs()) {
+                labels.add("Input: " + in.label);
+                actions.add(new Runnable() { @Override public void run() {
+                    String err = InputSwitch.select(HomeActivity.this, in.enumName);
+                    if (err != null) toast(err);
+                } });
+            }
+        }
+        add(labels, actions, "Files", new Runnable() { @Override public void run() {
+            tryStart(new Intent(HomeActivity.this, FilesActivity.class)); } });
+        add(labels, actions, "Screen mirror", new Runnable() { @Override public void run() {
+            AppEntry e = byPkg.get("com.wowsir.airwow");
+            if (e == null) e = findApp("airwow", "airplay", "airpin", "mirror", "miracast", "eshare", "cast");
+            if (e != null) launch(e); else toast("No screen-mirroring app found"); } });
+        add(labels, actions, "Planner", new Runnable() { @Override public void run() {
+            PlannerActivity.open(HomeActivity.this, null); } });
+        add(labels, actions, "New alarm", new Runnable() { @Override public void run() {
+            PlannerActivity.open(HomeActivity.this, "alarm"); } });
+        add(labels, actions, "Running apps", new Runnable() { @Override public void run() { openRecents(); } });
+        add(labels, actions, "Connections", new Runnable() { @Override public void run() {
+            tryStart(new Intent(HomeActivity.this, ConnectionsActivity.class)); } });
+        add(labels, actions, "Network", new Runnable() { @Override public void run() {
+            startFirst("Network settings aren't available",
+                    new Intent(Settings.ACTION_WIFI_SETTINGS),
+                    new Intent(Settings.ACTION_SETTINGS)); } });
+        add(labels, actions, "Alerts", new Runnable() { @Override public void run() {
+            tryStart(new Intent(HomeActivity.this, AlertSettingsActivity.class)); } });
+        add(labels, actions, "Personalise", new Runnable() { @Override public void run() {
+            tryStart(new Intent(HomeActivity.this, PersonaliseActivity.class)); } });
+        add(labels, actions, "Keyboard", new Runnable() { @Override public void run() { openKeyboardSetup(); } });
+        add(labels, actions, "Hidden apps", new Runnable() { @Override public void run() { showHiddenManager(); } });
+
+        pick("Menu", labels, actions);
+    }
+
+    private static void add(List<String> labels, List<Runnable> actions, String label, Runnable r) {
+        labels.add(label);
+        actions.add(r);
+    }
+
+    private void pick(String title, final List<String> labels, final List<Runnable> actions) {
+        AlertDialog d = new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle(title)
+                .setItems(labels.toArray(new String[0]), new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface dialog, int which) { actions.get(which).run(); }
+                }).create();
         showGlass(d);
     }
 
@@ -421,118 +504,17 @@ public class HomeActivity extends Activity {
         if (d.getWindow() != null) d.getWindow().setBackgroundDrawableResource(R.drawable.dialog_glass);
     }
 
-    // ------------------------------------------------------------------ inputs
-
-    private void buildInputsRow() {
-        inputsRow.removeAllViews();
-        java.util.List<InputSwitch.Input> inputs = InputSwitch.available(this)
-                ? InputSwitch.inputs() : java.util.Collections.<InputSwitch.Input>emptyList();
-        boolean show = !inputs.isEmpty();
-        inputsSection.setVisibility(show ? View.VISIBLE : View.GONE);
-        inputsScroll.setVisibility(show ? View.VISIBLE : View.GONE);
-        if (!show) return;
-        for (final InputSwitch.Input in : inputs) {
-            View t = inflater.inflate(R.layout.item_quick, inputsRow, false);
-            ((ImageView) t.findViewById(R.id.icon)).setImageResource(in.iconRes);
-            ((TextView) t.findViewById(R.id.label)).setText(in.label);
-            t.setTag(in.enumName);
-            t.setOnFocusChangeListener(Tiles.dock(inputsRow));
-            t.setOnClickListener(new View.OnClickListener() {
-                @Override public void onClick(View v) {
-                    String err = InputSwitch.select(HomeActivity.this, in.enumName);
-                    if (err != null) toast(err);
-                }
-            });
-            inputsRow.addView(t);
-        }
-        markCurrentInput();
+    private void openSettings() {
+        startFirst("Settings aren't available",
+                new Intent().setComponent(new ComponentName("com.android.tv.settings",
+                        "com.android.tv.settings.MainSettings")),
+                new Intent(Settings.ACTION_SETTINGS));
     }
-
-    /** Dim the input the TV is already showing. */
-    private void markCurrentInput() {
-        String cur = InputSwitch.current(this);
-        for (int i = 0; i < inputsRow.getChildCount(); i++) {
-            View t = inputsRow.getChildAt(i);
-            boolean isCur = cur != null && cur.equals(t.getTag());
-            t.setAlpha(isCur ? 0.55f : 1f);
-        }
-    }
-
-    // ------------------------------------------------------------------ quick row
 
     private void openRecents() {
         try { startActivity(new Intent(this, RecentsActivity.class)); } catch (Exception ignored) { }
     }
 
-    private void buildQuickRow() {
-        addQuick(R.drawable.ic_settings, "Settings", new Runnable() { @Override public void run() {
-            startFirst("Settings aren't available",
-                    new Intent().setComponent(new ComponentName("com.android.tv.settings",
-                            "com.android.tv.settings.MainSettings")),
-                    new Intent(Settings.ACTION_SETTINGS));
-        } });
-        addQuick(R.drawable.ic_wifi, "Network", new Runnable() { @Override public void run() {
-            startFirst("Network settings aren't available",
-                    new Intent(Settings.ACTION_WIFI_SETTINGS),
-                    new Intent().setComponent(new ComponentName("com.android.tv.settings",
-                            "com.android.tv.settings.connectivity.NetworkActivity")),
-                    new Intent(Settings.ACTION_SETTINGS));
-        } });
-        addQuick(R.drawable.ic_folder, "Files", new Runnable() { @Override public void run() {
-            tryStart(new Intent(HomeActivity.this, FilesActivity.class));
-        } });
-        addQuick(R.drawable.ic_calendar, "Planner", new Runnable() { @Override public void run() {
-            PlannerActivity.open(HomeActivity.this, null);
-        } });
-        addQuick(R.drawable.ic_alarm, "Alarm", new Runnable() { @Override public void run() {
-            PlannerActivity.open(HomeActivity.this, "alarm");
-        } });
-        addQuick(R.drawable.ic_plug, "Connections", new Runnable() { @Override public void run() {
-            tryStart(new Intent(HomeActivity.this, ConnectionsActivity.class));
-        } });
-        addQuick(R.drawable.ic_keyboard, "Keyboard", new Runnable() { @Override public void run() {
-            openKeyboardSetup();
-        } });
-        addQuick(R.drawable.ic_grid, "Recents", new Runnable() { @Override public void run() {
-            openRecents();
-        } });
-        addQuick(R.drawable.ic_cast, "Mirror", new Runnable() { @Override public void run() {
-            AppEntry e = byPkg.get("com.wowsir.airwow");
-            if (e == null) e = findApp("airwow", "airplay", "airpin", "mirror", "miracast", "eshare", "cast", "screen share");
-            if (e != null) launch(e);
-            else toast("No screen-mirroring app found");
-        } });
-        addQuick(R.drawable.ic_store, "Play Store", new Runnable() { @Override public void run() {
-            AppEntry e = byPkg.get("com.android.vending");
-            if (e != null) launch(e); else toast("Google Play isn't installed");
-        } });
-        addQuick(R.drawable.ic_globe, "Browser", new Runnable() { @Override public void run() {
-            AppEntry e = findApp("browser", "chrome", "firefox", "edge", "puffin");
-            if (e != null) launch(e); else toast("No browser installed");
-        } });
-        addQuick(R.drawable.ic_alerts, "Alerts", new Runnable() { @Override public void run() {
-            tryStart(new Intent(HomeActivity.this, AlertSettingsActivity.class));
-        } });
-        addQuick(R.drawable.ic_star, "Personalise", new Runnable() { @Override public void run() {
-            tryStart(new Intent(HomeActivity.this, PersonaliseActivity.class));
-        } });
-        addQuick(R.drawable.ic_hidden, "Hidden", new Runnable() { @Override public void run() {
-            showHiddenManager();
-        } });
-    }
-
-    private void addQuick(int iconRes, String label, final Runnable action) {
-        View t = inflater.inflate(R.layout.item_quick, quickRow, false);
-        ((ImageView) t.findViewById(R.id.icon)).setImageResource(iconRes);
-        ((TextView) t.findViewById(R.id.label)).setText(label);
-        t.setOnFocusChangeListener(Tiles.dock(quickRow));
-        t.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { action.run(); }
-        });
-        quickRow.addView(t);
-    }
-
-    /** First visible app whose name or package contains any keyword. */
     private AppEntry findApp(String... keywords) {
         List<String> keys = Arrays.asList(keywords);
         for (AppEntry e : allApps) {
@@ -558,52 +540,6 @@ public class HomeActivity extends Activity {
         }
     }
 
-    // ------------------------------------------------------------------ greeting & next up
-
-    private final Runnable messageTick = new Runnable() {
-        @Override public void run() {
-            showMessage(true);
-            ui.postDelayed(this, MESSAGE_MS);
-        }
-    };
-
-    private void refreshGreeting() {
-        boolean on = Greeting.show(this);
-        greetView.setVisibility(on ? View.VISIBLE : View.GONE);
-        messageView.setVisibility(on ? View.VISIBLE : View.GONE);
-        if (on) greetView.setText(Greeting.hello(this));
-    }
-
-    /** Fade to a new message suited to the time of day. */
-    private void showMessage(boolean animate) {
-        if (!Greeting.show(this)) return;
-        final String next = Greeting.message(this, lastMessage);
-        lastMessage = next;
-        if (!animate) {
-            messageView.setText(next);
-            return;
-        }
-        messageView.animate().alpha(0f).setDuration(400).withEndAction(new Runnable() {
-            @Override public void run() {
-                messageView.setText(next);
-                messageView.animate().alpha(1f).setDuration(600).start();
-            }
-        }).start();
-    }
-
-    private void refreshNextUp() {
-        long now = System.currentTimeMillis();
-        Plans.Plan p = Plans.nextUp(this, now);
-        long at = p == null ? -1 : Plans.nextTrigger(p, now);
-        // Only show what's coming in the next 24 hours.
-        if (p == null || at - now > 24 * 3_600_000L) {
-            nextChip.setVisibility(View.GONE);
-            return;
-        }
-        nextChip.setVisibility(View.VISIBLE);
-        nextText.setText(Plans.timeText(this, p.hour, p.minute) + "  " + p.displayTitle());
-    }
-
     private void openKeyboardSetup() {
         android.view.inputmethod.InputMethodManager imm =
                 (android.view.inputmethod.InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
@@ -623,18 +559,17 @@ public class HomeActivity extends Activity {
         }
         AlertDialog d = new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
                 .setTitle("Turn on WOW Keyboard")
-                .setMessage("This box hides keyboard settings. Run these from the Mac terminal:\n\n"
+                .setMessage("Run these from the Mac terminal:\n\n"
                         + "adb shell ime enable com.wowsir.wowos/.WowKeyboard\n"
                         + "adb shell ime set com.wowsir.wowos/.WowKeyboard")
                 .setPositiveButton("OK", null).create();
         showGlass(d);
     }
 
-    // ------------------------------------------------------------------ status chips
+    // ------------------------------------------------------------------ status
 
     private final Runnable statusTick = new Runnable() {
-        @Override
-        public void run() {
+        @Override public void run() {
             refreshStatus();
             ui.postDelayed(this, STATUS_REFRESH_MS);
         }
@@ -643,9 +578,19 @@ public class HomeActivity extends Activity {
     private void refreshStatus() {
         refreshNetwork();
         refreshUsb();
-        refreshGreeting();
         refreshNextUp();
-        if (inputsRow != null && inputsRow.getChildCount() > 0) markCurrentInput();
+    }
+
+    private void refreshNextUp() {
+        long now = System.currentTimeMillis();
+        Plans.Plan p = Plans.nextUp(this, now);
+        long at = p == null ? -1 : Plans.nextTrigger(p, now);
+        if (p == null || at - now > 24 * 3_600_000L) {
+            nextChip.setVisibility(View.GONE);
+            return;
+        }
+        nextChip.setVisibility(View.VISIBLE);
+        nextText.setText(Plans.timeText(this, p.hour, p.minute) + "  " + p.displayTitle());
     }
 
     @SuppressWarnings("deprecation")
@@ -664,7 +609,6 @@ public class HomeActivity extends Activity {
         netDot.setImageResource(on ? R.drawable.dot_on : R.drawable.dot_off);
     }
 
-    /** Shows mounted / checking / unreadable so a slow USB disk is visible, not a mystery. */
     private void refreshUsb() {
         String text = "No USB disk";
         int dot = R.drawable.dot_off;
@@ -696,17 +640,11 @@ public class HomeActivity extends Activity {
     // ------------------------------------------------------------------ receivers
 
     private final BroadcastReceiver packageReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            reloadApps();
-        }
+        @Override public void onReceive(Context context, Intent intent) { reloadApps(); }
     };
 
     private final BroadcastReceiver statusReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            refreshStatus();
-        }
+        @Override public void onReceive(Context context, Intent intent) { refreshStatus(); }
     };
 
     private static IntentFilter packageFilter() {
@@ -740,7 +678,7 @@ public class HomeActivity extends Activity {
     // ------------------------------------------------------------------ helpers
 
     private int dp(int v) {
-        return Math.round(v * getResources().getDisplayMetrics().density);
+        return Math.round(v * res.getDisplayMetrics().density);
     }
 
     private void toast(String s) {

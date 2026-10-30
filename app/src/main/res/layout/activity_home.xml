@@ -1,231 +1,218 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/page"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:clipChildren="false"
-    android:clipToPadding="false"
-    android:fillViewport="true"
-    android:scrollbars="none">
+    android:background="@drawable/bg_wallpaper">
 
-<LinearLayout
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:clipChildren="false"
-    android:clipToPadding="false"
-    android:orientation="vertical"
-    android:paddingStart="48dp"
-    android:paddingTop="28dp"
-    android:paddingEnd="48dp"
-    android:paddingBottom="12dp">
+    <!-- Full-screen hero artwork for the focused app (two layers for crossfade) -->
+    <ImageView
+        android:id="@+id/hero_a"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="no"
+        android:scaleType="centerCrop" />
 
-    <!-- Header -->
+    <ImageView
+        android:id="@+id/hero_b"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:alpha="0"
+        android:importantForAccessibility="no"
+        android:scaleType="centerCrop" />
+
+    <!-- Big faint icon for apps with no banner art -->
+    <ImageView
+        android:id="@+id/hero_icon"
+        android:layout_width="240dp"
+        android:layout_height="240dp"
+        android:layout_gravity="center"
+        android:alpha="0"
+        android:importantForAccessibility="no"
+        android:scaleType="fitCenter" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/hero_scrim" />
+
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:layout_height="match_parent"
+        android:clipChildren="false"
+        android:orientation="vertical"
+        android:paddingStart="44dp"
+        android:paddingTop="26dp"
+        android:paddingEnd="44dp"
+        android:paddingBottom="30dp">
 
-        <ImageView
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:importantForAccessibility="no"
-            android:src="@drawable/ic_launcher" />
-
+        <!-- Top bar -->
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="14dp"
-            android:orientation="vertical">
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_launcher" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
                 android:fontFamily="sans-serif-medium"
                 android:text="@string/app_name"
                 android:textColor="@color/text"
-                android:textSize="24sp" />
+                android:textSize="20sp" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/tagline"
-                android:textColor="@color/text_faint"
-                android:textSize="12sp" />
-        </LinearLayout>
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
 
-        <View
-            android:layout_width="0dp"
-            android:layout_height="1dp"
-            android:layout_weight="1" />
+            <LinearLayout style="@style/Chip">
+                <ImageView android:id="@+id/net_dot" android:layout_width="8dp" android:layout_height="8dp" android:src="@drawable/dot_off" />
+                <ImageView android:layout_width="16dp" android:layout_height="16dp" android:layout_marginStart="8dp" android:src="@drawable/ic_wifi" />
+                <TextView android:id="@+id/net_text" style="@style/ChipText" />
+            </LinearLayout>
 
-        <LinearLayout style="@style/Chip">
-            <ImageView android:id="@+id/net_dot" android:layout_width="8dp" android:layout_height="8dp" android:src="@drawable/dot_off" />
-            <ImageView android:layout_width="16dp" android:layout_height="16dp" android:layout_marginStart="8dp" android:src="@drawable/ic_wifi" />
-            <TextView android:id="@+id/net_text" style="@style/ChipText" />
-        </LinearLayout>
+            <LinearLayout style="@style/Chip">
+                <ImageView android:id="@+id/usb_dot" android:layout_width="8dp" android:layout_height="8dp" android:src="@drawable/dot_off" />
+                <ImageView android:layout_width="16dp" android:layout_height="16dp" android:layout_marginStart="8dp" android:src="@drawable/ic_usb" />
+                <TextView android:id="@+id/usb_text" style="@style/ChipText" />
+            </LinearLayout>
 
-        <LinearLayout style="@style/Chip">
-            <ImageView android:id="@+id/usb_dot" android:layout_width="8dp" android:layout_height="8dp" android:src="@drawable/dot_off" />
-            <ImageView android:layout_width="16dp" android:layout_height="16dp" android:layout_marginStart="8dp" android:src="@drawable/ic_usb" />
-            <TextView android:id="@+id/usb_text" style="@style/ChipText" />
-        </LinearLayout>
+            <LinearLayout android:id="@+id/next_chip" style="@style/Chip" android:visibility="gone">
+                <ImageView android:layout_width="16dp" android:layout_height="16dp" android:src="@drawable/ic_bell" />
+                <TextView android:id="@+id/next_text" style="@style/ChipText" android:maxWidth="220dp" android:singleLine="true" android:ellipsize="end" />
+            </LinearLayout>
 
-        <LinearLayout android:id="@+id/next_chip" style="@style/Chip" android:layout_marginEnd="24dp" android:visibility="gone">
-            <ImageView android:layout_width="16dp" android:layout_height="16dp" android:src="@drawable/ic_bell" />
-            <TextView android:id="@+id/next_text" style="@style/ChipText" android:maxWidth="260dp" android:singleLine="true" android:ellipsize="end" />
-        </LinearLayout>
+            <ImageView
+                android:id="@+id/btn_settings"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/glass_circle"
+                android:focusable="true"
+                android:padding="10dp"
+                android:src="@drawable/ic_settings" />
 
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:gravity="end"
-            android:orientation="vertical">
+            <ImageView
+                android:id="@+id/btn_menu"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:layout_marginStart="10dp"
+                android:background="@drawable/glass_circle"
+                android:focusable="true"
+                android:padding="10dp"
+                android:src="@drawable/ic_grid" />
 
             <TextClock
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
                 android:fontFamily="sans-serif-light"
                 android:format12Hour="h:mm"
                 android:format24Hour="HH:mm"
                 android:textColor="@color/text"
-                android:textSize="38sp" />
+                android:textSize="26sp" />
+        </LinearLayout>
 
-            <TextClock
+        <!-- App row -->
+        <HorizontalScrollView
+            android:id="@+id/app_scroll"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:paddingTop="16dp"
+            android:paddingBottom="16dp"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:id="@+id/app_row"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:format12Hour="EEEE, d MMMM"
-                android:format24Hour="EEEE, d MMMM"
-                android:textColor="@color/text_dim"
-                android:textSize="13sp" />
+                android:clipChildren="false"
+                android:orientation="horizontal"
+                android:paddingStart="4dp"
+                android:paddingEnd="40dp" />
+        </HorizontalScrollView>
+
+        <!-- Hero spacer: artwork shows through here -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <!-- Lower-left detail for the focused app -->
+        <TextView
+            android:id="@+id/hero_tag"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:letterSpacing="0.14"
+            android:textColor="@color/text_faint"
+            android:textSize="12sp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/hero_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif-medium"
+            android:maxWidth="760dp"
+            android:maxLines="1"
+            android:shadowColor="#CC000000"
+            android:shadowDx="0"
+            android:shadowDy="2"
+            android:shadowRadius="10"
+            android:textColor="@color/text"
+            android:textSize="40sp" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:clipChildren="false"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/btn_open"
+                android:layout_width="wrap_content"
+                android:layout_height="52dp"
+                android:background="@drawable/btn_open"
+                android:focusable="true"
+                android:fontFamily="sans-serif-medium"
+                android:gravity="center"
+                android:minWidth="150dp"
+                android:paddingStart="28dp"
+                android:paddingEnd="28dp"
+                android:text="@string/open"
+                android:textColor="#0B0E1A"
+                android:textSize="17sp" />
+
+            <LinearLayout
+                android:id="@+id/btn_options"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:layout_marginStart="14dp"
+                android:background="@drawable/glass_circle"
+                android:focusable="true"
+                android:gravity="center">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="•••"
+                    android:textColor="@color/text"
+                    android:textSize="18sp" />
+            </LinearLayout>
         </LinearLayout>
     </LinearLayout>
-
-    <!-- Greeting -->
-    <TextView
-        android:id="@+id/greet"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="4dp"
-        android:layout_marginTop="18dp"
-        android:fontFamily="sans-serif-light"
-        android:textColor="@color/text"
-        android:textSize="30sp" />
-
-    <TextView
-        android:id="@+id/message"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="4dp"
-        android:layout_marginTop="2dp"
-        android:maxLines="2"
-        android:maxWidth="900dp"
-        android:textColor="@color/text_dim"
-        android:textSize="16sp"
-        android:textStyle="italic" />
-
-    <!-- Inputs (only shown when WOW OS can switch them) -->
-    <TextView android:id="@+id/sec_inputs" style="@style/Section" android:layout_marginTop="14dp" android:text="@string/sec_inputs" android:visibility="gone" />
-
-    <HorizontalScrollView
-        android:id="@+id/inputs_scroll"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:clipChildren="false"
-        android:clipToPadding="false"
-        android:paddingTop="30dp"
-        android:paddingBottom="30dp"
-        android:scrollbars="none"
-        android:visibility="gone">
-
-        <LinearLayout
-            android:id="@+id/inputs_row"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:clipChildren="false"
-            android:orientation="horizontal"
-            android:paddingStart="40dp"
-            android:paddingEnd="40dp" />
-    </HorizontalScrollView>
-
-    <!-- Quick actions -->
-    <TextView style="@style/Section" android:layout_marginTop="14dp" android:text="@string/sec_quick" />
-
-    <HorizontalScrollView
-        android:id="@+id/quick_scroll"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:clipChildren="false"
-        android:clipToPadding="false"
-        android:paddingTop="30dp"
-        android:paddingBottom="30dp"
-        android:scrollbars="none">
-
-        <LinearLayout
-            android:id="@+id/quick_row"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:clipChildren="false"
-            android:orientation="horizontal"
-            android:paddingStart="40dp"
-            android:paddingEnd="40dp" />
-    </HorizontalScrollView>
-
-    <!-- Favourites -->
-    <TextView style="@style/Section" android:layout_marginTop="6dp" android:text="@string/sec_favs" />
-
-    <HorizontalScrollView
-        android:id="@+id/fav_scroll"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:clipChildren="false"
-        android:clipToPadding="false"
-        android:paddingTop="30dp"
-        android:paddingBottom="30dp"
-        android:scrollbars="none">
-
-        <LinearLayout
-            android:id="@+id/fav_row"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:clipChildren="false"
-            android:orientation="horizontal"
-            android:paddingStart="40dp"
-            android:paddingEnd="40dp" />
-    </HorizontalScrollView>
-
-    <TextView
-        android:id="@+id/fav_hint"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="6dp"
-        android:layout_marginBottom="8dp"
-        android:text="@string/fav_hint"
-        android:textColor="@color/text_faint"
-        android:textSize="13sp"
-        android:visibility="gone" />
-
-    <!-- All apps -->
-    <TextView style="@style/Section" android:layout_marginTop="6dp" android:text="@string/sec_all" />
-
-    <HorizontalScrollView
-        android:id="@+id/all_scroll"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:clipChildren="false"
-        android:clipToPadding="false"
-        android:paddingTop="30dp"
-        android:paddingBottom="30dp"
-        android:scrollbars="none">
-
-        <LinearLayout
-            android:id="@+id/all_row"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:clipChildren="false"
-            android:orientation="horizontal"
-            android:paddingStart="40dp"
-            android:paddingEnd="40dp" />
-    </HorizontalScrollView>
-</LinearLayout>
-</ScrollView>
+</FrameLayout>

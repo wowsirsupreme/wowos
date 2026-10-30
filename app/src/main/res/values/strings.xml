@@ -25,4 +25,5 @@ Add an alarm or a plan for your day.</string>
     <string name="kind_reminder">Reminder: short chime</string>
     <string name="default_name">Wilfred</string>
     <string name="sec_inputs">INPUTS</string>
+    <string name="open">Open</string>
 </resources>
