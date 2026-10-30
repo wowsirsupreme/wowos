@@ -16,7 +16,7 @@ A lightweight home screen (launcher) for HiSilicon Android TVs (this one is a Sa
 - Inputs: switch between HDMI 1/2, AV and antenna (TV) from the home screen, when installed as a system app (see below). Otherwise the remote's Source button is used.
 - Connections: HDMI output mode, inputs, USB devices, storage and network/IP.
 - WOW Keyboard: a glass on-screen keyboard made for the remote, with a gliding highlight. Up from the top row closes it.
-- Idle screen: after 90s unused, an original night animation (drifting crows and feathers, watching red eyes) with the clock. Any key wakes it. Toggle under Personalise.
+- Idle screen: after 90s unused, an original night animation (drifting crows and feathers, watching red eyes) with the clock — or your own photos (a slideshow) or a looping video. In WOW Files, hold OK on a photo/video and choose "Use on idle screen"; switch what it shows under Personalise. Any key wakes it.
 - Multitask switcher: a Recents tile (and the remote's App-switch key) lists running apps and jumps back to the exact task. Resuming the live task needs the system install.
 - Back never leaves the home screen. Pressing Home again jumps to the top.
 

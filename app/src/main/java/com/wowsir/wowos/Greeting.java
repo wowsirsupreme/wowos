@@ -18,6 +18,12 @@ final class Greeting {
     static final String K_BUILTIN = "builtin";
     static final String K_MINE = "mine";
     static final String K_IDLE = "idle_on";
+    static final String K_IDLE_MODE = "idle_mode";     // anim | photos | video
+    static final String K_IDLE_PHOTOS = "idle_photos"; // newline-separated file paths
+    static final String K_IDLE_VIDEO = "idle_video";   // single file path
+    static final String MODE_ANIM = "anim";
+    static final String MODE_PHOTOS = "photos";
+    static final String MODE_VIDEO = "video";
 
     /** Original WOW OS lines on courage, light and lifting others. */
     private static final String[] ANY_TIME = {
@@ -70,6 +76,29 @@ final class Greeting {
     static boolean show(Context c) { return prefs(c).getBoolean(K_SHOW, true); }
     static boolean builtin(Context c) { return prefs(c).getBoolean(K_BUILTIN, true); }
     static boolean idleOn(Context c) { return prefs(c).getBoolean(K_IDLE, true); }
+
+    static String idleMode(Context c) { return prefs(c).getString(K_IDLE_MODE, MODE_ANIM); }
+    static void setIdleMode(Context c, String mode) { prefs(c).edit().putString(K_IDLE_MODE, mode).apply(); }
+
+    static java.util.List<String> idlePhotos(Context c) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        for (String s : prefs(c).getString(K_IDLE_PHOTOS, "").split("\n")) if (!s.trim().isEmpty()) out.add(s.trim());
+        return out;
+    }
+    static void setIdlePhotos(Context c, java.util.List<String> paths) {
+        prefs(c).edit().putString(K_IDLE_PHOTOS, android.text.TextUtils.join("\n", paths)).apply();
+    }
+    static void addIdlePhoto(Context c, String path) {
+        java.util.List<String> p = idlePhotos(c);
+        if (!p.contains(path)) p.add(path);
+        setIdlePhotos(c, p);
+        setIdleMode(c, MODE_PHOTOS);
+    }
+    static String idleVideo(Context c) { return prefs(c).getString(K_IDLE_VIDEO, ""); }
+    static void setIdleVideo(Context c, String path) {
+        prefs(c).edit().putString(K_IDLE_VIDEO, path).apply();
+        setIdleMode(c, MODE_VIDEO);
+    }
 
     static List<String> mine(Context c) {
         String raw = prefs(c).getString(K_MINE, "");

@@ -20,6 +20,7 @@ public class PersonaliseActivity extends Activity {
     private View builtinRow;
     private View mineRow;
     private View idleRow;
+    private View contentRow;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,6 +41,18 @@ public class PersonaliseActivity extends Activity {
                 "Crows and watching red eyes, with the clock", "", new Runnable() {
                     @Override public void run() { flip(Greeting.K_IDLE); }
                 });
+        contentRow = Ui.row(this, idle, R.drawable.ic_image, "What it shows",
+                "Add a photo or video from WOW Files (hold OK on it)", "", new Runnable() {
+                    @Override public void run() { cycleIdleContent(); }
+                });
+        Ui.row(this, idle, R.drawable.ic_hidden, "Clear my photos and video", null, null, new Runnable() {
+            @Override public void run() {
+                Greeting.setIdlePhotos(PersonaliseActivity.this, new java.util.ArrayList<String>());
+                Greeting.prefs(PersonaliseActivity.this).edit().putString(Greeting.K_IDLE_VIDEO, "").apply();
+                Greeting.setIdleMode(PersonaliseActivity.this, Greeting.MODE_ANIM);
+                refresh();
+            }
+        });
         Ui.row(this, idle, R.drawable.ic_star, "Preview idle screen", null, null, new Runnable() {
             @Override public void run() { startActivity(new android.content.Intent(PersonaliseActivity.this, IdleActivity.class)); }
         });
@@ -61,8 +74,44 @@ public class PersonaliseActivity extends Activity {
         Ui.setValue(showRow, Greeting.show(this) ? "On" : "Off");
         Ui.setValue(builtinRow, Greeting.builtin(this) ? "On" : "Off");
         Ui.setValue(idleRow, Greeting.idleOn(this) ? "On" : "Off");
+        Ui.setValue(contentRow, idleContentLabel());
         int n = Greeting.mine(this).size();
         Ui.setValue(mineRow, n == 0 ? "None yet" : n + (n == 1 ? " message" : " messages"));
+    }
+
+    private String idleContentLabel() {
+        String mode = Greeting.idleMode(this);
+        if (Greeting.MODE_PHOTOS.equals(mode)) {
+            int n = Greeting.idlePhotos(this).size();
+            return n == 0 ? "Animation" : (n == 1 ? "1 photo" : n + " photos");
+        }
+        if (Greeting.MODE_VIDEO.equals(mode)) {
+            return Greeting.idleVideo(this).isEmpty() ? "Animation" : "My video";
+        }
+        return "Animation (crows & eyes)";
+    }
+
+    /** Cycle Animation -> my photos (if any) -> my video (if set) -> Animation. */
+    private void cycleIdleContent() {
+        String mode = Greeting.idleMode(this);
+        boolean hasPhotos = !Greeting.idlePhotos(this).isEmpty();
+        boolean hasVideo = !Greeting.idleVideo(this).isEmpty();
+        String next;
+        if (Greeting.MODE_ANIM.equals(mode)) {
+            next = hasPhotos ? Greeting.MODE_PHOTOS : (hasVideo ? Greeting.MODE_VIDEO : Greeting.MODE_ANIM);
+        } else if (Greeting.MODE_PHOTOS.equals(mode)) {
+            next = hasVideo ? Greeting.MODE_VIDEO : Greeting.MODE_ANIM;
+        } else {
+            next = Greeting.MODE_ANIM;
+        }
+        if (next.equals(mode)) {
+            android.widget.Toast.makeText(this,
+                    "Add a photo or video first: open WOW Files, hold OK on it, and choose \"Use on idle screen\".",
+                    android.widget.Toast.LENGTH_LONG).show();
+            return;
+        }
+        Greeting.setIdleMode(this, next);
+        refresh();
     }
 
     private void flip(String key) {

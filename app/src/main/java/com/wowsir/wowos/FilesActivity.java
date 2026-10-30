@@ -445,6 +445,21 @@ public class FilesActivity extends Activity {
         if (!it.dir) {
             labels.add("Open with…");
             actions.add(new Runnable() { @Override public void run() { openFile(it.file, true); } });
+
+            String ext = ext(it.name);
+            if (IMAGE.contains(ext)) {
+                labels.add("Use on idle screen");
+                actions.add(new Runnable() { @Override public void run() {
+                    Greeting.addIdlePhoto(FilesActivity.this, it.file.getAbsolutePath());
+                    toast(it.name + " added to the idle screen");
+                } });
+            } else if (VIDEO.contains(ext)) {
+                labels.add("Use as idle video");
+                actions.add(new Runnable() { @Override public void run() {
+                    Greeting.setIdleVideo(FilesActivity.this, it.file.getAbsolutePath());
+                    toast(it.name + " set as the idle video");
+                } });
+            }
         }
         labels.add("Copy");
         actions.add(new Runnable() { @Override public void run() { setClip(it.file, false); } });
@@ -694,6 +709,11 @@ public class FilesActivity extends Activity {
 
     private static Set<String> set(String... s) {
         return new HashSet<>(Arrays.asList(s));
+    }
+
+    private static String ext(String name) {
+        int dot = name.lastIndexOf('.');
+        return dot < 0 ? "" : name.substring(dot + 1).toLowerCase(java.util.Locale.ROOT);
     }
 
     private static int iconFor(Item it) {
