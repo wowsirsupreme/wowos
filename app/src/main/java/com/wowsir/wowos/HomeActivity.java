@@ -75,7 +75,8 @@ public class HomeActivity extends Activity {
 
     private final List<AppEntry> allApps = new ArrayList<>();
     private final Map<String, AppEntry> byPkg = new HashMap<>();
-    private AppEntry current;
+    private AppEntry current;         // focused app, or null when a tool tile is focused
+    private Runnable currentAction;   // focused tool's action, or null for an app
     private boolean loading;
 
     // ------------------------------------------------------------------ lifecycle
@@ -113,7 +114,10 @@ public class HomeActivity extends Activity {
         btnSettings.setOnFocusChangeListener(Tiles.LIFT_ON_FOCUS);
         btnMenu.setOnFocusChangeListener(Tiles.LIFT_ON_FOCUS);
         btnOpen.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { if (current != null) launch(current); }
+            @Override public void onClick(View v) {
+                if (currentAction != null) currentAction.run();
+                else if (current != null) launch(current);
+            }
         });
         btnOptions.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { if (current != null) showAppOptions(current); }
@@ -270,31 +274,9 @@ public class HomeActivity extends Activity {
     private void renderRow() {
         String keepFocusPkg = current != null ? current.pkg : null;
         appRow.removeAllViews();
-        List<AppEntry> apps = ordered();
-        for (final AppEntry e : apps) {
-            View tile = inflater.inflate(R.layout.item_ps5_tile, appRow, false);
-            ImageView icon = tile.findViewById(R.id.icon);
-            try { icon.setImageDrawable(e.newIcon(pm, res)); } catch (Throwable ignored) { }
-            tile.setFocusable(true);
-            tile.setTag(e);
-            tile.setOnFocusChangeListener(new View.OnFocusChangeListener() {
-                @Override public void onFocusChange(View v, boolean hasFocus) {
-                    v.animate().scaleX(hasFocus ? 1.14f : 1f).scaleY(hasFocus ? 1.14f : 1f)
-                            .translationZ(hasFocus ? 20f : 0f).setDuration(160).start();
-                    if (hasFocus) setCurrent(e);
-                }
-            });
-            tile.setOnClickListener(new View.OnClickListener() {
-                @Override public void onClick(View v) { launch(e); }
-            });
-            tile.setOnLongClickListener(new View.OnLongClickListener() {
-                @Override public boolean onLongClick(View v) { showAppOptions(e); return true; }
-            });
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(124), dp(124));
-            lp.setMarginEnd(dp(16));
-            appRow.addView(tile, lp);
-        }
-        // Keep the user where they were after a refresh, else focus the first app.
+        for (AppEntry e : ordered()) addAppTile(e);
+        addToolTiles();
+
         View focusTarget = null;
         if (keepFocusPkg != null) {
             for (int i = 0; i < appRow.getChildCount(); i++) {
@@ -308,43 +290,147 @@ public class HomeActivity extends Activity {
         if (focusTarget != null) focusTarget.requestFocus();
     }
 
+    private void addAppTile(final AppEntry e) {
+        View tile = inflater.inflate(R.layout.item_ps5_tile, appRow, false);
+        ImageView icon = tile.findViewById(R.id.icon);
+        try { icon.setImageDrawable(e.newIcon(pm, res)); } catch (Throwable ignored) { }
+        tile.setFocusable(true);
+        tile.setTag(e);
+        tile.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override public void onFocusChange(View v, boolean has) {
+                zoom(v, has);
+                if (has) setApp(e);
+            }
+        });
+        tile.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { launch(e); }
+        });
+        tile.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override public boolean onLongClick(View v) { showAppOptions(e); return true; }
+        });
+        addTile(tile);
+    }
+
+    /** WOW OS tools shown as real icon tiles (not hidden behind a menu). */
+    private void addToolTiles() {
+        addToolTile(R.drawable.ic_settings, "Settings", new Runnable() { @Override public void run() { openSettings(); } });
+        addToolTile(R.drawable.ic_folder, "Files", new Runnable() { @Override public void run() {
+            tryStart(new Intent(HomeActivity.this, FilesActivity.class)); } });
+        addToolTile(R.drawable.ic_calendar, "Planner", new Runnable() { @Override public void run() {
+            PlannerActivity.open(HomeActivity.this, null); } });
+        addToolTile(R.drawable.ic_alarm, "Alarm", new Runnable() { @Override public void run() {
+            PlannerActivity.open(HomeActivity.this, "alarm"); } });
+        addToolTile(R.drawable.ic_plug, "Connections", new Runnable() { @Override public void run() {
+            tryStart(new Intent(HomeActivity.this, ConnectionsActivity.class)); } });
+        addToolTile(R.drawable.ic_cast, "Screen mirror", new Runnable() { @Override public void run() {
+            AppEntry e = byPkg.get("com.wowsir.airwow");
+            if (e == null) e = findApp("airwow", "airplay", "airpin", "mirror", "miracast", "eshare", "cast");
+            if (e != null) launch(e); else toast("No screen-mirroring app found"); } });
+        addToolTile(R.drawable.ic_grid, "Running apps", new Runnable() { @Override public void run() { openRecents(); } });
+        addToolTile(R.drawable.ic_alerts, "Alerts", new Runnable() { @Override public void run() {
+            tryStart(new Intent(HomeActivity.this, AlertSettingsActivity.class)); } });
+        addToolTile(R.drawable.ic_star, "Personalise", new Runnable() { @Override public void run() {
+            tryStart(new Intent(HomeActivity.this, PersonaliseActivity.class)); } });
+        addToolTile(R.drawable.ic_keyboard, "Keyboard", new Runnable() { @Override public void run() { openKeyboardSetup(); } });
+        addToolTile(R.drawable.ic_hidden, "Hidden apps", new Runnable() { @Override public void run() { showHiddenManager(); } });
+        if (InputSwitch.available(this)) {
+            for (final InputSwitch.Input in : InputSwitch.inputs()) {
+                addToolTile(in.iconRes, in.label, new Runnable() { @Override public void run() {
+                    String err = InputSwitch.select(HomeActivity.this, in.enumName);
+                    if (err != null) toast(err); } });
+            }
+        }
+    }
+
+    private void addToolTile(final int iconRes, final String title, final Runnable run) {
+        View tile = inflater.inflate(R.layout.item_ps5_tile, appRow, false);
+        ImageView icon = tile.findViewById(R.id.icon);
+        icon.setImageResource(iconRes);
+        icon.setPadding(dp(30), dp(30), dp(30), dp(30));   // tools are line icons: a touch smaller
+        tile.setFocusable(true);
+        tile.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override public void onFocusChange(View v, boolean has) {
+                zoom(v, has);
+                if (has) setAction(iconRes, title, run);
+            }
+        });
+        tile.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { run.run(); }
+        });
+        addTile(tile);
+    }
+
+    private void addTile(View tile) {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(118), dp(118));
+        lp.setMarginEnd(dp(16));
+        appRow.addView(tile, lp);
+    }
+
+    /** Big, top-anchored zoom so a hovered tile blows up downward into the open area. */
+    private void zoom(View v, boolean focused) {
+        v.setPivotX(v.getWidth() / 2f);
+        v.setPivotY(0f);
+        float s = focused ? 1.5f : 1f;
+        v.animate().scaleX(s).scaleY(s).translationZ(focused ? 28f : 0f)
+                .setDuration(190).setInterpolator(new android.view.animation.OvershootInterpolator(1.4f))
+                .start();
+    }
+
     // ------------------------------------------------------------------ hero
 
-    private void setCurrent(AppEntry e) {
+    private void setApp(AppEntry e) {
         current = e;
+        currentAction = null;
+        btnOptions.setVisibility(View.VISIBLE);
         heroTitle.setText(e.label);
         boolean fav = prefs.isFav(e.pkg);
         heroTag.setVisibility(fav ? View.VISIBLE : View.GONE);
         if (fav) heroTag.setText("PINNED");
+        Drawable banner = null;
+        try { if (e.hasBanner(pm)) banner = e.newArt(pm, res); } catch (Throwable ignored) { }
+        Drawable icon = null;
+        try { icon = e.newIcon(pm, res); } catch (Throwable ignored) { }
+        scheduleHero(banner, icon);
+    }
+
+    private void setAction(int iconRes, String title, Runnable run) {
+        current = null;
+        currentAction = run;
+        btnOptions.setVisibility(View.GONE);
+        heroTag.setVisibility(View.VISIBLE);
+        heroTag.setText("WOW OS");
+        heroTitle.setText(title);
+        Drawable icon = null;
+        try { icon = res.getDrawable(iconRes); } catch (Throwable ignored) { }
+        scheduleHero(null, icon);
+    }
+
+    private Drawable pendingBanner, pendingIcon;
+
+    private void scheduleHero(Drawable banner, Drawable icon) {
+        pendingBanner = banner;
+        pendingIcon = icon;
         ui.removeCallbacks(heroLoad);
         ui.postDelayed(heroLoad, HERO_DELAY_MS);
     }
 
     private final Runnable heroLoad = new Runnable() {
-        @Override public void run() { loadHero(current); }
+        @Override public void run() { showHero(pendingBanner, pendingIcon); }
     };
 
-    private void loadHero(final AppEntry e) {
-        if (e == null) return;
+    private void showHero(Drawable banner, Drawable icon) {
         Drawable art = null;
-        try {
-            if (e.hasBanner(pm)) art = scaleHero(e.newArt(pm, res));
-        } catch (Throwable ignored) { }
+        try { art = scaleHero(banner); } catch (Throwable ignored) { }
 
         ImageView next = heroShowingA ? heroB : heroA;
         ImageView cur = heroShowingA ? heroA : heroB;
-        try {
-            next.setImageDrawable(art);
-        } catch (Throwable t) {
-            next.setImageDrawable(null);
-        }
+        try { next.setImageDrawable(art); } catch (Throwable t) { next.setImageDrawable(null); }
         next.animate().alpha(art != null ? 1f : 0f).setDuration(350).start();
         cur.animate().alpha(0f).setDuration(350).start();
         heroShowingA = !heroShowingA;
 
-        // No banner: show the app's icon big and faint in the centre instead.
         if (art == null) {
-            try { heroIcon.setImageDrawable(e.newIcon(pm, res)); } catch (Throwable ignored) { }
+            try { heroIcon.setImageDrawable(icon); } catch (Throwable ignored) { }
             heroIcon.animate().alpha(0.5f).setDuration(350).start();
         } else {
             heroIcon.animate().alpha(0f).setDuration(250).start();
