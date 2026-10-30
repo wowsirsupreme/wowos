@@ -1,6 +1,10 @@
 package com.wowsir.wowos;
 
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -8,6 +12,9 @@ import android.widget.TextView;
 /** Fills an item_app tile and gives it the glass focus animation. */
 final class Tiles {
     static final float FOCUS_SCALE = 1.06f;
+
+    /** Cap artwork size so a wall of tiles can't exhaust the TV's small heap. */
+    private static final int MAX_ART_PX = 256;
 
     private Tiles() { }
 
@@ -19,16 +26,42 @@ final class Tiles {
         frame.setClipToOutline(true);
 
         label.setText(e.label);
-        if (e.hasBanner(pm)) {
-            banner.setImageDrawable(e.newArt(pm, tile.getResources()));
-            banner.setVisibility(View.VISIBLE);
-            icon.setImageDrawable(null);
-            icon.setVisibility(View.GONE);
-        } else {
-            icon.setImageDrawable(e.newArt(pm, tile.getResources()));
-            icon.setVisibility(View.VISIBLE);
+        // Art loading must never crash the launcher — bad icons or low memory just fall back to text.
+        try {
+            if (e.hasBanner(pm)) {
+                banner.setImageDrawable(downsample(e.newArt(pm, tile.getResources()), tile.getResources()));
+                banner.setVisibility(View.VISIBLE);
+                icon.setImageDrawable(null);
+                icon.setVisibility(View.GONE);
+            } else {
+                icon.setImageDrawable(downsample(e.newArt(pm, tile.getResources()), tile.getResources()));
+                icon.setVisibility(View.VISIBLE);
+                banner.setImageDrawable(null);
+                banner.setVisibility(View.GONE);
+            }
+        } catch (Throwable t) {
             banner.setImageDrawable(null);
             banner.setVisibility(View.GONE);
+            icon.setImageDrawable(null);
+            icon.setVisibility(View.GONE);
+        }
+    }
+
+    /** Scale an oversized bitmap drawable down to the cap; leave vectors and small art alone. */
+    private static Drawable downsample(Drawable d, Resources res) {
+        if (!(d instanceof BitmapDrawable)) return d;
+        try {
+            Bitmap bmp = ((BitmapDrawable) d).getBitmap();
+            if (bmp == null) return d;
+            int w = bmp.getWidth(), h = bmp.getHeight();
+            int max = Math.max(w, h);
+            if (max <= MAX_ART_PX) return d;
+            float scale = (float) MAX_ART_PX / max;
+            Bitmap small = Bitmap.createScaledBitmap(bmp, Math.max(1, (int) (w * scale)),
+                    Math.max(1, (int) (h * scale)), true);
+            return new BitmapDrawable(res, small);
+        } catch (Throwable t) {
+            return d;
         }
     }
 

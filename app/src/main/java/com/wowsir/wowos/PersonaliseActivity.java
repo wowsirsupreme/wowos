@@ -19,6 +19,7 @@ public class PersonaliseActivity extends Activity {
     private View showRow;
     private View builtinRow;
     private View mineRow;
+    private View idleRow;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -32,6 +33,15 @@ public class PersonaliseActivity extends Activity {
         });
         showRow = Ui.row(this, g, R.drawable.ic_star, "Show greeting and messages", null, "", new Runnable() {
             @Override public void run() { flip(Greeting.K_SHOW); }
+        });
+
+        LinearLayout idle = Ui.card(this, content, R.drawable.ic_bt, "Idle screen");
+        idleRow = Ui.row(this, idle, R.drawable.ic_tv, "Show idle screen when not used",
+                "Crows and watching red eyes, with the clock", "", new Runnable() {
+                    @Override public void run() { flip(Greeting.K_IDLE); }
+                });
+        Ui.row(this, idle, R.drawable.ic_star, "Preview idle screen", null, null, new Runnable() {
+            @Override public void run() { startActivity(new android.content.Intent(PersonaliseActivity.this, IdleActivity.class)); }
         });
 
         LinearLayout m = Ui.card(this, content, R.drawable.ic_doc, "Messages");
@@ -50,6 +60,7 @@ public class PersonaliseActivity extends Activity {
         Ui.setValue(nameRow, Greeting.name(this));
         Ui.setValue(showRow, Greeting.show(this) ? "On" : "Off");
         Ui.setValue(builtinRow, Greeting.builtin(this) ? "On" : "Off");
+        Ui.setValue(idleRow, Greeting.idleOn(this) ? "On" : "Off");
         int n = Greeting.mine(this).size();
         Ui.setValue(mineRow, n == 0 ? "None yet" : n + (n == 1 ? " message" : " messages"));
     }

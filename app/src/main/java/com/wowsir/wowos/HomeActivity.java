@@ -73,6 +73,7 @@ public class HomeActivity extends Activity {
     private TextView nextText;
     private String lastMessage;
     private static final long MESSAGE_MS = 45_000;
+    private static final long IDLE_MS = 90_000;
 
     private final List<AppEntry> allApps = new ArrayList<>();
     private final Map<String, AppEntry> byPkg = new HashMap<>();
@@ -128,6 +129,7 @@ public class HomeActivity extends Activity {
         ui.postDelayed(statusTick, STATUS_REFRESH_MS);
         showMessage(false);
         ui.postDelayed(messageTick, MESSAGE_MS);
+        scheduleIdle();
     }
 
     @Override
@@ -135,6 +137,7 @@ public class HomeActivity extends Activity {
         super.onPause();
         ui.removeCallbacks(statusTick);
         ui.removeCallbacks(messageTick);
+        ui.removeCallbacks(idleRunnable);
     }
 
     @Override
@@ -161,9 +164,31 @@ public class HomeActivity extends Activity {
         if (quickRow.getChildCount() > 0) quickRow.getChildAt(0).requestFocus();
     }
 
-    /** The Menu key opens the options for whichever app is focused. */
+    @Override
+    public void onUserInteraction() {
+        super.onUserInteraction();
+        scheduleIdle();
+    }
+
+    private void scheduleIdle() {
+        ui.removeCallbacks(idleRunnable);
+        if (Greeting.idleOn(this)) ui.postDelayed(idleRunnable, IDLE_MS);
+    }
+
+    private final Runnable idleRunnable = new Runnable() {
+        @Override public void run() {
+            if (!hasWindowFocus()) return;
+            try { startActivity(new Intent(HomeActivity.this, IdleActivity.class)); } catch (Exception ignored) { }
+        }
+    };
+
+    /** Menu opens app options; the App-switch key opens the multitask switcher. */
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_APP_SWITCH) {
+            openRecents();
+            return true;
+        }
         if (keyCode == KeyEvent.KEYCODE_MENU) {
             View f = getCurrentFocus();
             if (f != null && f.getTag() instanceof AppEntry) {
@@ -434,6 +459,10 @@ public class HomeActivity extends Activity {
 
     // ------------------------------------------------------------------ quick row
 
+    private void openRecents() {
+        try { startActivity(new Intent(this, RecentsActivity.class)); } catch (Exception ignored) { }
+    }
+
     private void buildQuickRow() {
         addQuick(R.drawable.ic_settings, "Settings", new Runnable() { @Override public void run() {
             startFirst("Settings aren't available",
@@ -462,6 +491,9 @@ public class HomeActivity extends Activity {
         } });
         addQuick(R.drawable.ic_keyboard, "Keyboard", new Runnable() { @Override public void run() {
             openKeyboardSetup();
+        } });
+        addQuick(R.drawable.ic_grid, "Recents", new Runnable() { @Override public void run() {
+            openRecents();
         } });
         addQuick(R.drawable.ic_cast, "Mirror", new Runnable() { @Override public void run() {
             AppEntry e = byPkg.get("com.wowsir.airwow");

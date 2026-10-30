@@ -17,6 +17,7 @@ final class Greeting {
     static final String K_SHOW = "show";
     static final String K_BUILTIN = "builtin";
     static final String K_MINE = "mine";
+    static final String K_IDLE = "idle_on";
 
     /** Original WOW OS lines on courage, light and lifting others. */
     private static final String[] ANY_TIME = {
@@ -68,6 +69,7 @@ final class Greeting {
 
     static boolean show(Context c) { return prefs(c).getBoolean(K_SHOW, true); }
     static boolean builtin(Context c) { return prefs(c).getBoolean(K_BUILTIN, true); }
+    static boolean idleOn(Context c) { return prefs(c).getBoolean(K_IDLE, true); }
 
     static List<String> mine(Context c) {
         String raw = prefs(c).getString(K_MINE, "");
