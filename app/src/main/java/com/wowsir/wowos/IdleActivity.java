@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.graphics.SurfaceTexture;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Bundle;
@@ -12,12 +13,13 @@ import android.os.Looper;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.Surface;
+import android.view.TextureView;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextClock;
-import android.widget.VideoView;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -40,7 +42,8 @@ public class IdleActivity extends Activity {
     private int photoIndex;
     private ImageView imageA, imageB;
     private boolean showingA = true;
-    private VideoView video;
+    private MediaPlayer player;
+    private TextureView texture;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -131,27 +134,63 @@ public class IdleActivity extends Activity {
     private View buildVideo() {
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
-        video = new VideoView(this);
+        texture = new TextureView(this);
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
         lp.gravity = Gravity.CENTER;
-        video.setLayoutParams(lp);
-        video.setVideoURI(Uri.fromFile(new File(Greeting.idleVideo(this))));
-        video.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
-            @Override public void onPrepared(MediaPlayer mp) {
-                mp.setLooping(true);
-                mp.setVolume(0f, 0f);   // silent wallpaper
-                video.start();
+        texture.setLayoutParams(lp);
+        texture.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
+            @Override public void onSurfaceTextureAvailable(SurfaceTexture st, int w, int h) {
+                startVideo(new Surface(st));
             }
+            @Override public void onSurfaceTextureSizeChanged(SurfaceTexture st, int w, int h) { }
+            @Override public boolean onSurfaceTextureDestroyed(SurfaceTexture st) { releasePlayer(); return true; }
+            @Override public void onSurfaceTextureUpdated(SurfaceTexture st) { }
         });
-        video.setOnErrorListener(new MediaPlayer.OnErrorListener() {
-            @Override public boolean onError(MediaPlayer mp, int what, int extra) {
-                finish();   // bad file: just drop back to the home screen
-                return true;
-            }
-        });
-        root.addView(video);
+        root.addView(texture);
+        root.addView(clockOverlay());
         return root;
+    }
+
+    /**
+     * Plays the idle video with a raw MediaPlayer (not VideoView, which pops the
+     * "Can't play this video" dialog on this ROM). Loops by hand so an end-of-clip
+     * glitch can't error, and on a genuine failure just falls back to the home screen.
+     */
+    private void startVideo(Surface surface) {
+        try {
+            player = new MediaPlayer();
+            player.setSurface(surface);
+            player.setDataSource(Greeting.idleVideo(this));
+            player.setVolume(0f, 0f);
+            player.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+                @Override public void onPrepared(MediaPlayer m) { try { m.start(); } catch (Throwable ignored) { } }
+            });
+            player.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+                @Override public void onCompletion(MediaPlayer m) {
+                    try { m.seekTo(0); m.start(); } catch (Throwable ignored) { }   // manual, glitch-proof loop
+                }
+            });
+            player.setOnErrorListener(new MediaPlayer.OnErrorListener() {
+                @Override public boolean onError(MediaPlayer m, int what, int extra) {
+                    releasePlayer();
+                    finish();          // silently drop back — no system error dialog
+                    return true;
+                }
+            });
+            player.prepareAsync();
+        } catch (Throwable t) {
+            releasePlayer();
+            finish();
+        }
+    }
+
+    private void releasePlayer() {
+        if (player != null) {
+            try { player.reset(); } catch (Throwable ignored) { }
+            try { player.release(); } catch (Throwable ignored) { }
+            player = null;
+        }
     }
 
     // ------------------------------------------------------------------ clock overlay
@@ -187,7 +226,7 @@ public class IdleActivity extends Activity {
     protected void onDestroy() {
         super.onDestroy();
         ui.removeCallbacks(slide);
-        if (video != null) try { video.stopPlayback(); } catch (Exception ignored) { }
+        releasePlayer();
     }
 
     @Override
