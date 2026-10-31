@@ -126,7 +126,7 @@ public class HomeActivity extends Activity {
             @Override public void onClick(View v) { openSettings(); }
         });
         btnMenu.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { showMenu(); }
+            @Override public void onClick(View v) { openRecents(); }
         });
 
         registerReceiver(packageReceiver, packageFilter());
@@ -311,31 +311,27 @@ public class HomeActivity extends Activity {
         addTile(tile);
     }
 
-    /** WOW OS tools shown as real icon tiles (not hidden behind a menu). */
+    /** WOW OS tools shown as real app-style icon tiles (not hidden behind a menu). */
     private void addToolTiles() {
-        addToolTile(R.drawable.ic_settings, "Settings", new Runnable() { @Override public void run() { openSettings(); } });
-        addToolTile(R.drawable.ic_folder, "Files", new Runnable() { @Override public void run() {
+        addToolTile(R.drawable.sysic_files, "Files", new Runnable() { @Override public void run() {
             tryStart(new Intent(HomeActivity.this, FilesActivity.class)); } });
-        addToolTile(R.drawable.ic_calendar, "Planner", new Runnable() { @Override public void run() {
+        addToolTile(R.drawable.sysic_planner, "Planner", new Runnable() { @Override public void run() {
             PlannerActivity.open(HomeActivity.this, null); } });
-        addToolTile(R.drawable.ic_alarm, "Alarm", new Runnable() { @Override public void run() {
-            PlannerActivity.open(HomeActivity.this, "alarm"); } });
-        addToolTile(R.drawable.ic_plug, "Connections", new Runnable() { @Override public void run() {
+        addToolTile(R.drawable.sysic_connections, "Connections", new Runnable() { @Override public void run() {
             tryStart(new Intent(HomeActivity.this, ConnectionsActivity.class)); } });
-        addToolTile(R.drawable.ic_cast, "Screen mirror", new Runnable() { @Override public void run() {
+        addToolTile(R.drawable.sysic_mirror, "Screen mirror", new Runnable() { @Override public void run() {
             AppEntry e = byPkg.get("com.wowsir.airwow");
             if (e == null) e = findApp("airwow", "airplay", "airpin", "mirror", "miracast", "eshare", "cast");
             if (e != null) launch(e); else toast("No screen-mirroring app found"); } });
-        addToolTile(R.drawable.ic_grid, "Running apps", new Runnable() { @Override public void run() { openRecents(); } });
-        addToolTile(R.drawable.ic_alerts, "Alerts", new Runnable() { @Override public void run() {
+        addToolTile(R.drawable.sysic_alerts, "Alerts", new Runnable() { @Override public void run() {
             tryStart(new Intent(HomeActivity.this, AlertSettingsActivity.class)); } });
-        addToolTile(R.drawable.ic_star, "Personalise", new Runnable() { @Override public void run() {
+        addToolTile(R.drawable.sysic_personalise, "Personalise", new Runnable() { @Override public void run() {
             tryStart(new Intent(HomeActivity.this, PersonaliseActivity.class)); } });
-        addToolTile(R.drawable.ic_keyboard, "Keyboard", new Runnable() { @Override public void run() { openKeyboardSetup(); } });
-        addToolTile(R.drawable.ic_hidden, "Hidden apps", new Runnable() { @Override public void run() { showHiddenManager(); } });
+        addToolTile(R.drawable.sysic_hidden, "Hidden apps", new Runnable() { @Override public void run() { showHiddenManager(); } });
         if (InputSwitch.available(this)) {
             for (final InputSwitch.Input in : InputSwitch.inputs()) {
-                addToolTile(in.iconRes, in.label, new Runnable() { @Override public void run() {
+                int ic = in.label.toLowerCase(Locale.ROOT).contains("tv") ? R.drawable.sysic_tv : R.drawable.sysic_input;
+                addToolTile(ic, in.label, new Runnable() { @Override public void run() {
                     String err = InputSwitch.select(HomeActivity.this, in.enumName);
                     if (err != null) toast(err); } });
             }
@@ -346,7 +342,7 @@ public class HomeActivity extends Activity {
         View tile = inflater.inflate(R.layout.item_ps5_tile, appRow, false);
         ImageView icon = tile.findViewById(R.id.icon);
         icon.setImageResource(iconRes);
-        icon.setPadding(dp(30), dp(30), dp(30), dp(30));   // tools are line icons: a touch smaller
+        icon.setPadding(dp(8), dp(8), dp(8), dp(8));   // colored app-style icon fills the tile
         tile.setFocusable(true);
         tile.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override public void onFocusChange(View v, boolean has) {
@@ -369,10 +365,10 @@ public class HomeActivity extends Activity {
     /** Big, top-anchored zoom so a hovered tile blows up downward into the open area. */
     private void zoom(View v, boolean focused) {
         v.setPivotX(v.getWidth() / 2f);
-        v.setPivotY(0f);
-        float s = focused ? 1.5f : 1f;
+        v.setPivotY(v.getHeight() / 2f);     // grow from the centre so nothing is cut at the top
+        float s = focused ? 1.45f : 1f;
         v.animate().scaleX(s).scaleY(s).translationZ(focused ? 28f : 0f)
-                .setDuration(190).setInterpolator(new android.view.animation.OvershootInterpolator(1.4f))
+                .setDuration(190).setInterpolator(new android.view.animation.OvershootInterpolator(1.2f))
                 .start();
     }
 

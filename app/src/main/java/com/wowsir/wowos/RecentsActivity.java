@@ -2,6 +2,7 @@ package com.wowsir.wowos;
 
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.AlertDialog;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -94,7 +95,7 @@ public class RecentsActivity extends Activity {
     private void buildUi(List<Task> tasks) {
         Ui.page(this, "Running apps", tasks.isEmpty()
                 ? "Nothing else is running right now."
-                : "Jump back to what you were doing.");
+                : "OK resumes an app. Hold OK (or Menu) to end it.");
         LinearLayout content = Ui.content(this);
         if (tasks.isEmpty()) {
             Ui.card(this, content, R.drawable.ic_grid, "Open an app from the home screen to multitask.");
@@ -125,6 +126,9 @@ public class RecentsActivity extends Activity {
             card.setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) { open(t); }
             });
+            card.setOnLongClickListener(new View.OnLongClickListener() {
+                @Override public boolean onLongClick(View v) { options(t); return true; }
+            });
             row.addView(card);
         }
         row.post(new Runnable() {
@@ -151,5 +155,42 @@ public class RecentsActivity extends Activity {
             try { startActivity(i); finish(); return; } catch (Throwable ignored) { }
         }
         Toast.makeText(this, "Couldn't reopen " + t.label, Toast.LENGTH_SHORT).show();
+    }
+
+    private void options(final Task t) {
+        AlertDialog d = new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle(t.label)
+                .setItems(new String[]{"Resume", "End app"}, new android.content.DialogInterface.OnClickListener() {
+                    @Override public void onClick(android.content.DialogInterface di, int which) {
+                        if (which == 0) open(t); else end(t);
+                    }
+                }).create();
+        d.show();
+        if (d.getWindow() != null) d.getWindow().setBackgroundDrawableResource(R.drawable.dialog_glass);
+    }
+
+    /** End an app: force-stop it (system app), kill background, and drop its task. */
+    private void end(Task t) {
+        ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        if (am != null) {
+            try { am.killBackgroundProcesses(t.pkg); } catch (Throwable ignored) { }
+            try { ActivityManager.class.getMethod("forceStopPackage", String.class).invoke(am, t.pkg); } catch (Throwable ignored) { }
+            if (t.id >= 0) {
+                try { ActivityManager.class.getMethod("removeTask", int.class).invoke(am, t.id); } catch (Throwable ignored) { }
+            }
+        }
+        Toast.makeText(this, "Ended " + t.label, Toast.LENGTH_SHORT).show();
+        // Rebuild the list after a moment so the ended app drops off.
+        new android.os.Handler(getMainLooper()).postDelayed(new Runnable() {
+            @Override public void run() { buildUi(collect()); }
+        }, 400);
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, android.view.KeyEvent event) {
+        if (keyCode == android.view.KeyEvent.KEYCODE_MENU) {
+            // no-op here; long-press handles options
+        }
+        return super.onKeyDown(keyCode, event);
     }
 }
