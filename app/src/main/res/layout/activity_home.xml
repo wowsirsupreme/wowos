@@ -138,8 +138,8 @@
                 android:layout_height="wrap_content"
                 android:clipChildren="false"
                 android:orientation="horizontal"
-                android:paddingStart="70dp"
-                android:paddingEnd="70dp" />
+                android:paddingStart="44dp"
+                android:paddingEnd="44dp" />
         </FrameLayout>
 
         <!-- Hero spacer: artwork shows through here -->

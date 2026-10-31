@@ -372,16 +372,22 @@ public class HomeActivity extends Activity {
         if (focused) keepClear(v);
     }
 
-    /** Slide the whole row (no scroll container to clip the zoom) so focus sits ~a quarter in. */
+    /** Slide the row only when the focused tile nears an edge; never past the ends. */
     private void keepClear(final View v) {
         appRow.post(new Runnable() {
             @Override public void run() {
                 int vw = appScroll.getWidth();
                 int rowW = appRow.getWidth();
                 if (vw == 0 || rowW == 0) return;
-                float desired = vw * 0.25f - v.getLeft();
-                float min = Math.min(0f, (float) (vw - rowW));
-                float tx = Math.max(min, Math.min(0f, desired));
+                float cur = appRow.getTranslationX();
+                int margin = dp(90);                       // keep this much clear of each edge
+                int leftOnScreen = (int) (v.getLeft() + cur);
+                int rightOnScreen = (int) (v.getRight() + cur);
+                float tx = cur;
+                if (leftOnScreen < margin) tx = cur + (margin - leftOnScreen);
+                else if (rightOnScreen > vw - margin) tx = cur - (rightOnScreen - (vw - margin));
+                float min = Math.min(0f, (float) (vw - rowW));   // don't reveal blank past the last tile
+                tx = Math.max(min, Math.min(0f, tx));
                 appRow.animate().translationX(tx).setDuration(220)
                         .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
             }
