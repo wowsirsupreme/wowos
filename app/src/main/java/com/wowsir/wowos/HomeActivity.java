@@ -28,7 +28,6 @@ import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -63,7 +62,7 @@ public class HomeActivity extends Activity {
     private final Handler ui = new Handler(Looper.getMainLooper());
 
     private LinearLayout appRow;
-    private HorizontalScrollView appScroll;
+    private android.widget.FrameLayout appScroll;
     private ImageView heroA, heroB, heroIcon;
     private boolean heroShowingA = true;
     private TextView heroTitle, heroTag;
@@ -171,7 +170,7 @@ public class HomeActivity extends Activity {
     }
 
     private void focusFirstApp() {
-        appScroll.smoothScrollTo(0, 0);
+        appRow.animate().translationX(0f).setDuration(200).start();
         if (appRow.getChildCount() > 0) appRow.getChildAt(0).requestFocus();
     }
 
@@ -373,20 +372,18 @@ public class HomeActivity extends Activity {
         if (focused) keepClear(v);
     }
 
-    /** Scroll so the focused tile stays well inside the row, leaving room for its zoom. */
+    /** Slide the whole row (no scroll container to clip the zoom) so focus sits ~a quarter in. */
     private void keepClear(final View v) {
-        appScroll.post(new Runnable() {
+        appRow.post(new Runnable() {
             @Override public void run() {
-                int margin = dp(60);
-                int sx = appScroll.getScrollX();
                 int vw = appScroll.getWidth();
-                int left = v.getLeft();
-                int right = v.getRight();
-                if (left - sx < margin) {
-                    appScroll.smoothScrollTo(Math.max(0, left - margin), 0);
-                } else if (right - sx > vw - margin) {
-                    appScroll.smoothScrollTo(right - vw + margin, 0);
-                }
+                int rowW = appRow.getWidth();
+                if (vw == 0 || rowW == 0) return;
+                float desired = vw * 0.25f - v.getLeft();
+                float min = Math.min(0f, (float) (vw - rowW));
+                float tx = Math.max(min, Math.min(0f, desired));
+                appRow.animate().translationX(tx).setDuration(220)
+                        .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
             }
         });
     }
