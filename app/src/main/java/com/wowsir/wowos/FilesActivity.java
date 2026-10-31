@@ -490,6 +490,11 @@ public class FilesActivity extends Activity {
                     Greeting.addIdlePhoto(FilesActivity.this, it.file.getAbsolutePath());
                     toast(it.name + " added to the idle screen");
                 } });
+                labels.add("Set as home wallpaper");
+                actions.add(new Runnable() { @Override public void run() {
+                    Greeting.setHomeWallpaper(FilesActivity.this, it.file.getAbsolutePath());
+                    toast(it.name + " set as the home wallpaper");
+                } });
             } else if (VIDEO.contains(ext)) {
                 labels.add("Use as idle video");
                 actions.add(new Runnable() { @Override public void run() {

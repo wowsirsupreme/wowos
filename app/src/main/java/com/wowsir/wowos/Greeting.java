@@ -21,6 +21,7 @@ final class Greeting {
     static final String K_IDLE_MODE = "idle_mode";     // anim | photos | video
     static final String K_IDLE_PHOTOS = "idle_photos"; // newline-separated file paths
     static final String K_IDLE_VIDEO = "idle_video";   // single file path
+    static final String K_HOME_WALLPAPER = "home_wallpaper"; // single file path, "" = built-in
     static final String MODE_ANIM = "anim";
     static final String MODE_PHOTOS = "photos";
     static final String MODE_VIDEO = "video";
@@ -98,6 +99,11 @@ final class Greeting {
     static void setIdleVideo(Context c, String path) {
         prefs(c).edit().putString(K_IDLE_VIDEO, path).apply();
         setIdleMode(c, MODE_VIDEO);
+    }
+
+    static String homeWallpaper(Context c) { return prefs(c).getString(K_HOME_WALLPAPER, ""); }
+    static void setHomeWallpaper(Context c, String path) {
+        prefs(c).edit().putString(K_HOME_WALLPAPER, path == null ? "" : path).apply();
     }
 
     static List<String> mine(Context c) {

@@ -21,6 +21,7 @@ public class PersonaliseActivity extends Activity {
     private View mineRow;
     private View idleRow;
     private View contentRow;
+    private View wallpaperRow;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,6 +58,21 @@ public class PersonaliseActivity extends Activity {
             @Override public void run() { startActivity(new android.content.Intent(PersonaliseActivity.this, IdleActivity.class)); }
         });
 
+        LinearLayout hs = Ui.card(this, content, R.drawable.ic_image, "Home screen");
+        wallpaperRow = Ui.row(this, hs, R.drawable.ic_image, "Wallpaper",
+                "Open WOW Files, hold OK on a picture, choose \"Set as home wallpaper\"", "", new Runnable() {
+                    @Override public void run() {
+                        if (Greeting.homeWallpaper(PersonaliseActivity.this).isEmpty()) {
+                            tryOpenFiles();
+                        } else {
+                            Greeting.setHomeWallpaper(PersonaliseActivity.this, "");
+                            android.widget.Toast.makeText(PersonaliseActivity.this,
+                                    "Home wallpaper cleared", android.widget.Toast.LENGTH_SHORT).show();
+                            refresh();
+                        }
+                    }
+                });
+
         LinearLayout m = Ui.card(this, content, R.drawable.ic_doc, "Messages");
         builtinRow = Ui.row(this, m, R.drawable.ic_star, "WOW OS messages",
                 "Original lines on courage and letting your light shine", "", new Runnable() {
@@ -69,12 +85,19 @@ public class PersonaliseActivity extends Activity {
         refresh();
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        refresh();
+    }
+
     private void refresh() {
         Ui.setValue(nameRow, Greeting.name(this));
         Ui.setValue(showRow, Greeting.show(this) ? "On" : "Off");
         Ui.setValue(builtinRow, Greeting.builtin(this) ? "On" : "Off");
         Ui.setValue(idleRow, Greeting.idleOn(this) ? "On" : "Off");
         Ui.setValue(contentRow, idleContentLabel());
+        Ui.setValue(wallpaperRow, Greeting.homeWallpaper(this).isEmpty() ? "Built-in" : "Tap to clear");
         int n = Greeting.mine(this).size();
         Ui.setValue(mineRow, n == 0 ? "None yet" : n + (n == 1 ? " message" : " messages"));
     }
@@ -179,6 +202,14 @@ public class PersonaliseActivity extends Activity {
                         if (!t.isEmpty()) done.done(t);
                     }
                 }).create());
+    }
+
+    private void tryOpenFiles() {
+        try { startActivity(new android.content.Intent(this, FilesActivity.class)); }
+        catch (Exception e) {
+            android.widget.Toast.makeText(this, "Open WOW Files from the home screen",
+                    android.widget.Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void glass(AlertDialog d) {

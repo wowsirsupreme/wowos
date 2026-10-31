@@ -63,7 +63,7 @@ public class HomeActivity extends Activity {
 
     private LinearLayout appRow;
     private android.widget.FrameLayout appScroll;
-    private ImageView heroA, heroB, heroIcon;
+    private ImageView heroA, heroB, heroIcon, homeWallpaper;
     private boolean heroShowingA = true;
     private TextView heroTitle, heroTag;
     private View btnOpen, btnOptions, btnSettings, btnMenu;
@@ -95,6 +95,7 @@ public class HomeActivity extends Activity {
         heroA = findViewById(R.id.hero_a);
         heroB = findViewById(R.id.hero_b);
         heroIcon = findViewById(R.id.hero_icon);
+        homeWallpaper = findViewById(R.id.home_wallpaper);
         heroTitle = findViewById(R.id.hero_title);
         heroTag = findViewById(R.id.hero_tag);
         btnOpen = findViewById(R.id.btn_open);
@@ -144,8 +145,51 @@ public class HomeActivity extends Activity {
         super.onResume();
         TimeSync.syncSoon(this);
         refreshStatus();
+        applyWallpaper();
         ui.postDelayed(statusTick, STATUS_REFRESH_MS);
         scheduleIdle();
+    }
+
+    /** Show the user's own home wallpaper when they've set one; otherwise fall back
+     *  to the built-in background. Reloaded on every resume so a change in WOW Files
+     *  takes effect as soon as you return to the home screen. */
+    private String appliedWallpaper = null;
+    private void applyWallpaper() {
+        String path = Greeting.homeWallpaper(this);
+        if (path == null || path.isEmpty() || !new java.io.File(path).canRead()) {
+            homeWallpaper.setImageDrawable(null);
+            homeWallpaper.setVisibility(View.GONE);
+            appliedWallpaper = null;
+            return;
+        }
+        if (path.equals(appliedWallpaper)) return;   // already shown; don't re-decode
+        int w = res.getDisplayMetrics().widthPixels;
+        int h = res.getDisplayMetrics().heightPixels;
+        Bitmap bmp = decodeDownsampled(path, w, h);
+        if (bmp == null) {
+            homeWallpaper.setVisibility(View.GONE);
+            appliedWallpaper = null;
+            return;
+        }
+        homeWallpaper.setImageBitmap(bmp);
+        homeWallpaper.setVisibility(View.VISIBLE);
+        appliedWallpaper = path;
+    }
+
+    /** Decode a file no larger than the screen so a huge photo can't exhaust the heap. */
+    private static Bitmap decodeDownsampled(String path, int reqW, int reqH) {
+        try {
+            android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+            o.inJustDecodeBounds = true;
+            android.graphics.BitmapFactory.decodeFile(path, o);
+            int sample = 1;
+            while (o.outWidth / sample > reqW * 1.2 || o.outHeight / sample > reqH * 1.2) sample *= 2;
+            o.inJustDecodeBounds = false;
+            o.inSampleSize = sample;
+            return android.graphics.BitmapFactory.decodeFile(path, o);
+        } catch (Throwable t) {
+            return null;
+        }
     }
 
     @Override

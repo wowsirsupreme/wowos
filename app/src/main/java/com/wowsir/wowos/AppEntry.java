@@ -47,8 +47,21 @@ final class AppEntry {
         return artIsBanner;
     }
 
-    /** The app's launcher icon (always the icon, never the banner). */
+    /** The app's launcher icon (always the icon, never the banner).
+     *  Pulls the app's HIGHEST-density icon variant (xxxhdpi) rather than the one
+     *  matching this low-density TV, so it stays crisp when drawn large in a tile
+     *  and when the tile blooms on focus. Falls back to the default icon. */
     android.graphics.drawable.Drawable newIcon(PackageManager pm, Resources res) {
+        try {
+            int iconRes = info.icon != 0 ? info.icon
+                    : (info.applicationInfo != null ? info.applicationInfo.icon : 0);
+            if (iconRes != 0) {
+                Resources appRes = pm.getResourcesForApplication(info.applicationInfo);
+                android.graphics.drawable.Drawable hi = appRes.getDrawableForDensity(
+                        iconRes, android.util.DisplayMetrics.DENSITY_XXXHIGH, null);
+                if (hi != null) return hi;
+            }
+        } catch (Throwable ignored) { }
         try {
             android.graphics.drawable.Drawable d = info.loadIcon(pm);
             if (d == null) return null;
