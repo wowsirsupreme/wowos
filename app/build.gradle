@@ -10,8 +10,21 @@ android {
         applicationId 'com.wowsir.wowos'
         minSdk 24
         targetSdk 34
-        versionCode 26
-        versionName '3.5'
+        versionCode 27
+        versionName '3.6'
+    }
+
+    signingConfigs {
+        // A stable, committed key so every build is signed identically. Without this
+        // the CI debug keystore is regenerated each run, the signature changes, and
+        // Android refuses to update the installed app (forcing an uninstall, and
+        // making /system swaps silently revert). Self-signed; fine for a personal box.
+        release {
+            storeFile file('wowos-release.jks')
+            storePassword 'wowoswow'
+            keyAlias 'wowos'
+            keyPassword 'wowoswow'
+        }
     }
 
     buildTypes {
@@ -19,8 +32,10 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
-            // Signed with the debug key so it installs straight over ADB.
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
+        }
+        debug {
+            signingConfig signingConfigs.release
         }
     }
 
