@@ -108,6 +108,10 @@ public class HomeActivity extends Activity {
         nextChip = findViewById(R.id.next_chip);
         nextText = findViewById(R.id.next_text);
 
+        // Force clipping off the whole ancestor chain so a focused tile's bloom can
+        // never be cut by a ROM that doesn't honour the XML clipChildren flag.
+        unclipAncestors(appRow);
+
         btnOpen.setOnFocusChangeListener(Tiles.LIFT_ON_FOCUS);
         btnOptions.setOnFocusChangeListener(Tiles.LIFT_ON_FOCUS);
         btnSettings.setOnFocusChangeListener(Tiles.LIFT_ON_FOCUS);
@@ -361,15 +365,36 @@ public class HomeActivity extends Activity {
         appRow.addView(tile, lp);
     }
 
-    /** Big, top-anchored zoom so a hovered tile blows up downward into the open area. */
-    private void zoom(View v, boolean focused) {
-        v.setPivotX(v.getWidth() / 2f);
-        v.setPivotY(0f);                      // anchor the top so it can't be cut; bloom downward
-        float s = focused ? 1.45f : 1f;
-        v.animate().scaleX(s).scaleY(s).translationZ(focused ? 28f : 0f)
-                .setDuration(190).setInterpolator(new android.view.animation.OvershootInterpolator(1.2f))
-                .start();
+    /** Centre-pivot PS5 bloom: a hovered tile scales evenly in every direction into
+     *  the clear space around the row. Pivots are set from the measured size (posted
+     *  if the tile hasn't been laid out yet, e.g. the very first auto-focus). */
+    private void zoom(final View v, final boolean focused) {
+        final Runnable apply = new Runnable() {
+            @Override public void run() {
+                v.setPivotX(v.getWidth() / 2f);
+                v.setPivotY(v.getHeight() / 2f);     // bloom from the centre, not a rail
+                float s = focused ? 1.42f : 1f;
+                v.animate().scaleX(s).scaleY(s).translationZ(focused ? 28f : 0f)
+                        .setDuration(190)
+                        .setInterpolator(new android.view.animation.OvershootInterpolator(1.1f))
+                        .start();
+            }
+        };
+        if (v.getWidth() == 0 || v.getHeight() == 0) v.post(apply); else apply.run();
         if (focused) keepClear(v);
+    }
+
+    /** Walk from the row up to the window root, turning clipping off on every group. */
+    private void unclipAncestors(View from) {
+        View v = from;
+        while (v != null) {
+            if (v instanceof ViewGroup) {
+                ((ViewGroup) v).setClipChildren(false);
+                ((ViewGroup) v).setClipToPadding(false);
+            }
+            if (!(v.getParent() instanceof View)) break;
+            v = (View) v.getParent();
+        }
     }
 
     /** Slide the row only when the focused tile nears an edge; never past the ends. */

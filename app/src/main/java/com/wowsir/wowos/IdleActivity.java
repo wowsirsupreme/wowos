@@ -158,6 +158,7 @@ public class IdleActivity extends Activity {
      * glitch can't error, and on a genuine failure just falls back to the home screen.
      */
     private void startVideo(Surface surface) {
+        if (player != null) return;            // guard: surface callbacks can fire more than once
         try {
             player = new MediaPlayer();
             player.setSurface(surface);
@@ -173,16 +174,25 @@ public class IdleActivity extends Activity {
             });
             player.setOnErrorListener(new MediaPlayer.OnErrorListener() {
                 @Override public boolean onError(MediaPlayer m, int what, int extra) {
-                    releasePlayer();
-                    finish();          // silently drop back — no system error dialog
-                    return true;
+                    fallbackToAnimation();     // no system error dialog; show the crows instead
+                    return true;               // we handled it
                 }
             });
             player.prepareAsync();
         } catch (Throwable t) {
-            releasePlayer();
-            finish();
+            fallbackToAnimation();
         }
+    }
+
+    /** A bad/unsupported video shouldn't bounce the user to Home or show an error box:
+     *  release the player and switch the idle screen to the built-in animation. */
+    private void fallbackToAnimation() {
+        releasePlayer();
+        ui.post(new Runnable() {
+            @Override public void run() {
+                try { setContentView(new IdleView(IdleActivity.this)); } catch (Throwable ignored) { finish(); }
+            }
+        });
     }
 
     private void releasePlayer() {
