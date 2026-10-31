@@ -446,8 +446,12 @@ public class HomeActivity extends Activity {
         appRow.post(new Runnable() {
             @Override public void run() {
                 int vw = appScroll.getWidth();
-                int rowW = appRow.getWidth();
-                if (vw == 0 || rowW == 0) return;
+                if (vw == 0 || appRow.getChildCount() == 0) return;
+                // The row is wrap_content inside a full-width frame, so appRow.getWidth()
+                // is clamped to the screen and is NOT the true content width. Measure the
+                // content from the last child, or scrolling right is impossible (min == 0).
+                View last = appRow.getChildAt(appRow.getChildCount() - 1);
+                int contentW = last.getRight() + appRow.getPaddingRight();
                 float cur = appRow.getTranslationX();
                 int margin = dp(90);                       // keep this much clear of each edge
                 int leftOnScreen = (int) (v.getLeft() + cur);
@@ -455,7 +459,7 @@ public class HomeActivity extends Activity {
                 float tx = cur;
                 if (leftOnScreen < margin) tx = cur + (margin - leftOnScreen);
                 else if (rightOnScreen > vw - margin) tx = cur - (rightOnScreen - (vw - margin));
-                float min = Math.min(0f, (float) (vw - rowW));   // don't reveal blank past the last tile
+                float min = Math.min(0f, (float) (vw - contentW));   // last tile flush right, no blank beyond
                 tx = Math.max(min, Math.min(0f, tx));
                 appRow.animate().translationX(tx).setDuration(220)
                         .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
