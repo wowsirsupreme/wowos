@@ -44,6 +44,8 @@ public class IdleActivity extends Activity {
     private boolean showingA = true;
     private MediaPlayer player;
     private TextureView texture;
+    private int scaleMode;
+    private int videoW, videoH, texW, texH;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -53,6 +55,7 @@ public class IdleActivity extends Activity {
                 View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN
                         | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_LOW_PROFILE);
 
+        scaleMode = Greeting.idleScale(this);
         String mode = Greeting.idleMode(this);
         if (Greeting.MODE_PHOTOS.equals(mode) && hasReadablePhotos()) {
             setContentView(buildPhotos());
@@ -91,7 +94,9 @@ public class IdleActivity extends Activity {
         ImageView iv = new ImageView(this);
         iv.setLayoutParams(new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
-        iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        iv.setScaleType(scaleMode == Greeting.SCALE_FIT ? ImageView.ScaleType.FIT_CENTER
+                : scaleMode == Greeting.SCALE_STRETCH ? ImageView.ScaleType.FIT_XY
+                : ImageView.ScaleType.CENTER_CROP);
         return iv;
     }
 
@@ -141,9 +146,12 @@ public class IdleActivity extends Activity {
         texture.setLayoutParams(lp);
         texture.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
             @Override public void onSurfaceTextureAvailable(SurfaceTexture st, int w, int h) {
+                texW = w; texH = h;
                 startVideo(new Surface(st));
             }
-            @Override public void onSurfaceTextureSizeChanged(SurfaceTexture st, int w, int h) { }
+            @Override public void onSurfaceTextureSizeChanged(SurfaceTexture st, int w, int h) {
+                texW = w; texH = h; updateVideoTransform();
+            }
             @Override public boolean onSurfaceTextureDestroyed(SurfaceTexture st) { releasePlayer(); return true; }
             @Override public void onSurfaceTextureUpdated(SurfaceTexture st) { }
         });
@@ -164,8 +172,17 @@ public class IdleActivity extends Activity {
             player.setSurface(surface);
             player.setDataSource(Greeting.idleVideo(this));
             player.setVolume(0f, 0f);
+            player.setOnVideoSizeChangedListener(new MediaPlayer.OnVideoSizeChangedListener() {
+                @Override public void onVideoSizeChanged(MediaPlayer m, int w, int h) {
+                    videoW = w; videoH = h; updateVideoTransform();
+                }
+            });
             player.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
-                @Override public void onPrepared(MediaPlayer m) { try { m.start(); } catch (Throwable ignored) { } }
+                @Override public void onPrepared(MediaPlayer m) {
+                    videoW = m.getVideoWidth(); videoH = m.getVideoHeight();
+                    updateVideoTransform();
+                    try { m.start(); } catch (Throwable ignored) { }
+                }
             });
             player.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
                 @Override public void onCompletion(MediaPlayer m) {
@@ -193,6 +210,24 @@ public class IdleActivity extends Activity {
                 try { setContentView(new IdleView(IdleActivity.this)); } catch (Throwable ignored) { finish(); }
             }
         });
+    }
+
+    /** A TextureView stretches its surface to fill the view, so for Fill/Fit we apply a
+     *  matrix that re-scales the content to the video's real aspect ratio (crop vs letterbox).
+     *  Stretch leaves the default fill-the-bounds behaviour. */
+    private void updateVideoTransform() {
+        if (texture == null || videoW <= 0 || videoH <= 0 || texW <= 0 || texH <= 0) return;
+        android.graphics.Matrix mx = new android.graphics.Matrix();
+        float sx = 1f, sy = 1f;
+        if (scaleMode != Greeting.SCALE_STRETCH) {
+            float scale = scaleMode == Greeting.SCALE_FIT
+                    ? Math.min((float) texW / videoW, (float) texH / videoH)   // letterbox
+                    : Math.max((float) texW / videoW, (float) texH / videoH);  // crop to fill
+            sx = (videoW * scale) / texW;
+            sy = (videoH * scale) / texH;
+        }
+        mx.setScale(sx, sy, texW / 2f, texH / 2f);
+        texture.setTransform(mx);
     }
 
     private void releasePlayer() {

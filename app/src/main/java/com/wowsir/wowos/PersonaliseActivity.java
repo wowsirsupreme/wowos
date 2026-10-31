@@ -21,6 +21,7 @@ public class PersonaliseActivity extends Activity {
     private View mineRow;
     private View idleRow;
     private View contentRow;
+    private View scaleRow;
     private View wallpaperRow;
 
     @Override
@@ -45,6 +46,13 @@ public class PersonaliseActivity extends Activity {
         contentRow = Ui.row(this, idle, R.drawable.ic_image, "What it shows",
                 "Add a photo or video from WOW Files (hold OK on it)", "", new Runnable() {
                     @Override public void run() { cycleIdleContent(); }
+                });
+        scaleRow = Ui.row(this, idle, R.drawable.ic_tv, "Scaling",
+                "Fill crops to the screen, Fit shows all with bars, Stretch fills exactly", "", new Runnable() {
+                    @Override public void run() {
+                        Greeting.setIdleScale(PersonaliseActivity.this, (Greeting.idleScale(PersonaliseActivity.this) + 1) % 3);
+                        refresh();
+                    }
                 });
         Ui.row(this, idle, R.drawable.ic_hidden, "Clear my photos and video", null, null, new Runnable() {
             @Override public void run() {
@@ -97,6 +105,7 @@ public class PersonaliseActivity extends Activity {
         Ui.setValue(builtinRow, Greeting.builtin(this) ? "On" : "Off");
         Ui.setValue(idleRow, Greeting.idleOn(this) ? "On" : "Off");
         Ui.setValue(contentRow, idleContentLabel());
+        Ui.setValue(scaleRow, Greeting.idleScaleLabel(Greeting.idleScale(this)));
         Ui.setValue(wallpaperRow, Greeting.homeWallpaper(this).isEmpty() ? "Built-in" : "Tap to clear");
         int n = Greeting.mine(this).size();
         Ui.setValue(mineRow, n == 0 ? "None yet" : n + (n == 1 ? " message" : " messages"));
