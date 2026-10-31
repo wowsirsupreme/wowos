@@ -12,8 +12,11 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
+import android.graphics.Outline;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
+import android.view.ViewOutlineProvider;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
@@ -154,6 +157,7 @@ public class HomeActivity extends Activity {
      *  to the built-in background. Reloaded on every resume so a change in WOW Files
      *  takes effect as soon as you return to the home screen. */
     private static final int DEFAULT_ACCENT = 0xFF4F9BFF;
+    private int glowColor = 0xFFBFE3FF;       // focus-glow colour, follows the accent
     private String appliedWallpaper = null;
     private void applyWallpaper() {
         String path = Greeting.homeWallpaper(this);
@@ -182,12 +186,20 @@ public class HomeActivity extends Activity {
 
     /** Tint the Open button and the "pinned/WOW OS" tag with the wallpaper accent. */
     private void applyAccent(int color) {
+        glowColor = lighten(color, 0.4f);     // a softer, brighter glow than the raw accent
         try {
             btnOpen.setBackgroundTintList(android.content.res.ColorStateList.valueOf(color));
             if (btnOpen instanceof TextView)
                 ((TextView) btnOpen).setTextColor(ColorExtract.isLight(color) ? 0xFF0B0E1A : 0xFFFFFFFF);
         } catch (Throwable ignored) { }
         try { heroTag.setTextColor(color); } catch (Throwable ignored) { }
+    }
+
+    private static int lighten(int c, float f) {
+        int r = (int) (android.graphics.Color.red(c) + (255 - android.graphics.Color.red(c)) * f);
+        int g = (int) (android.graphics.Color.green(c) + (255 - android.graphics.Color.green(c)) * f);
+        int b = (int) (android.graphics.Color.blue(c) + (255 - android.graphics.Color.blue(c)) * f);
+        return 0xFF000000 | (r << 16) | (g << 8) | b;
     }
 
     /** Decode a file no larger than the screen so a huge photo can't exhaust the heap. */
@@ -418,8 +430,16 @@ public class HomeActivity extends Activity {
     }
 
     private void addTile(View tile) {
+        // Rounded outline so the focus glow (tinted shadow) follows the tile shape,
+        // and don't clip to it so the glow can spread outside the tile.
+        tile.setOutlineProvider(new ViewOutlineProvider() {
+            @Override public void getOutline(View v, Outline o) {
+                o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), dp(22));
+            }
+        });
+        tile.setClipToOutline(false);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(118), dp(118));
-        lp.setMarginEnd(dp(16));
+        lp.setMarginEnd(dp(26));          // roomier spacing, like the stock rows
         appRow.addView(tile, lp);
     }
 
@@ -431,8 +451,12 @@ public class HomeActivity extends Activity {
             @Override public void run() {
                 v.setPivotX(v.getWidth() / 2f);
                 v.setPivotY(v.getHeight() / 2f);     // bloom from the centre, not a rail
+                if (Build.VERSION.SDK_INT >= 28) {   // tinted shadow = soft glow (Android 9+)
+                    v.setOutlineSpotShadowColor(focused ? glowColor : 0xFF000000);
+                    v.setOutlineAmbientShadowColor(focused ? glowColor : 0xFF000000);
+                }
                 float s = focused ? 1.42f : 1f;
-                v.animate().scaleX(s).scaleY(s).translationZ(focused ? 28f : 0f)
+                v.animate().scaleX(s).scaleY(s).translationZ(focused ? dp(16) : 0f)
                         .setDuration(190)
                         .setInterpolator(new android.view.animation.OvershootInterpolator(1.1f))
                         .start();
