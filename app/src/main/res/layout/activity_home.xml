@@ -126,10 +126,11 @@
             android:id="@+id/app_scroll"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="44dp"
+            android:layout_marginTop="96dp"
             android:clipChildren="false"
             android:clipToPadding="false"
-            android:paddingBottom="110dp">
+            android:paddingTop="40dp"
+            android:paddingBottom="150dp">
 
             <LinearLayout
                 android:id="@+id/app_row"
