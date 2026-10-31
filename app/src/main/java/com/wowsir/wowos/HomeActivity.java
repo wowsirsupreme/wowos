@@ -370,6 +370,25 @@ public class HomeActivity extends Activity {
         v.animate().scaleX(s).scaleY(s).translationZ(focused ? 28f : 0f)
                 .setDuration(190).setInterpolator(new android.view.animation.OvershootInterpolator(1.2f))
                 .start();
+        if (focused) keepClear(v);
+    }
+
+    /** Scroll so the focused tile stays well inside the row, leaving room for its zoom. */
+    private void keepClear(final View v) {
+        appScroll.post(new Runnable() {
+            @Override public void run() {
+                int margin = dp(60);
+                int sx = appScroll.getScrollX();
+                int vw = appScroll.getWidth();
+                int left = v.getLeft();
+                int right = v.getRight();
+                if (left - sx < margin) {
+                    appScroll.smoothScrollTo(Math.max(0, left - margin), 0);
+                } else if (right - sx > vw - margin) {
+                    appScroll.smoothScrollTo(right - vw + margin, 0);
+                }
+            }
+        });
     }
 
     // ------------------------------------------------------------------ hero

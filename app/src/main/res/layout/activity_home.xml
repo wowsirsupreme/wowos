@@ -139,8 +139,8 @@
                 android:layout_height="wrap_content"
                 android:clipChildren="false"
                 android:orientation="horizontal"
-                android:paddingStart="4dp"
-                android:paddingEnd="40dp" />
+                android:paddingStart="48dp"
+                android:paddingEnd="48dp" />
         </HorizontalScrollView>
 
         <!-- Hero spacer: artwork shows through here -->
