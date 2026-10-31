@@ -19,6 +19,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextClock;
 
 import java.io.File;
@@ -82,7 +83,7 @@ public class IdleActivity extends Activity {
         imageB.setAlpha(0f);
         root.addView(imageA);
         root.addView(imageB);
-        root.addView(clockOverlay());
+        { View ck = clockOverlay(); if (ck != null) root.addView(ck); }
 
         photoIndex = 0;
         setImage(imageA, photos.get(0));
@@ -156,7 +157,7 @@ public class IdleActivity extends Activity {
             @Override public void onSurfaceTextureUpdated(SurfaceTexture st) { }
         });
         root.addView(texture);
-        root.addView(clockOverlay());
+        { View ck = clockOverlay(); if (ck != null) root.addView(ck); }
         return root;
     }
 
@@ -240,19 +241,54 @@ public class IdleActivity extends Activity {
 
     // ------------------------------------------------------------------ clock overlay
 
+    /** Configurable clock: position + format come from Personalise. Null when hidden. */
     private View clockOverlay() {
-        TextClock clock = new TextClock(this);
-        clock.setFormat12Hour("h:mm");
-        clock.setFormat24Hour("HH:mm");
-        clock.setTextColor(0xF2FFFFFF);
-        clock.setTextSize(44);
-        clock.setShadowLayer(12f, 0, 2f, 0xCC000000);
+        int pos = Greeting.idleClockPos(this);
+        if (pos == Greeting.POS_HIDDEN) return null;
+        int fmt = Greeting.idleClockFmt(this);
+        int gH = pos == Greeting.POS_BR ? Gravity.END : pos == Greeting.POS_BL ? Gravity.START : Gravity.CENTER_HORIZONTAL;
+
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(gH);
+
+        TextClock time = new TextClock(this);
+        String tp = Greeting.clockTimePattern(this, fmt);
+        time.setFormat12Hour(tp);
+        time.setFormat24Hour(tp);
+        time.setTextColor(0xF2FFFFFF);
+        time.setTextSize(44);
+        time.setShadowLayer(12f, 0, 2f, 0xCC000000);
+        time.setGravity(gH);
+        box.addView(time);
+
+        if (Greeting.clockDate(fmt)) {
+            TextClock date = new TextClock(this);
+            date.setFormat12Hour("EEEE, d MMMM");
+            date.setFormat24Hour("EEEE, d MMMM");
+            date.setTextColor(0x99FFFFFF);
+            date.setTextSize(16);
+            date.setShadowLayer(8f, 0, 1f, 0xCC000000);
+            date.setGravity(gH);
+            LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            dlp.topMargin = dp(2);
+            date.setLayoutParams(dlp);
+            box.addView(date);
+        }
+
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT);
-        lp.gravity = Gravity.BOTTOM | Gravity.END;
-        lp.setMargins(0, 0, dp(40), dp(28));
-        clock.setLayoutParams(lp);
-        return clock;
+        int m = dp(40);
+        switch (pos) {
+            case Greeting.POS_CENTRE: lp.gravity = Gravity.CENTER; break;
+            case Greeting.POS_BR: lp.gravity = Gravity.BOTTOM | Gravity.END; lp.setMargins(0, 0, m, dp(28)); break;
+            case Greeting.POS_BL: lp.gravity = Gravity.BOTTOM | Gravity.START; lp.setMargins(m, 0, 0, dp(28)); break;
+            case Greeting.POS_TOP: lp.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL; lp.setMargins(0, dp(44), 0, 0); break;
+            default: lp.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL; lp.setMargins(0, 0, 0, dp(90)); break;
+        }
+        box.setLayoutParams(lp);
+        return box;
     }
 
     private int screenW() { return getResources().getDisplayMetrics().widthPixels; }

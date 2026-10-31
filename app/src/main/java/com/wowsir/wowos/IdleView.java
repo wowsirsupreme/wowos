@@ -281,21 +281,37 @@ final class IdleView extends View {
     }
 
     private void drawClock(Canvas c, int w, int h) {
+        int pos = Greeting.idleClockPos(getContext());
+        if (pos == Greeting.POS_HIDDEN) return;
+        int fmt = Greeting.idleClockFmt(getContext());
+
         Calendar cal = Calendar.getInstance();
         cal.setTimeInMillis(TimeSync.nowMillis());
-        boolean h24 = DateFormat.is24HourFormat(getContext());
-        String time = (String) DateFormat.format(h24 ? "HH:mm" : "h:mm", cal);
-        String date = (String) DateFormat.format("EEEE, d MMMM", cal);
+        String time = (String) DateFormat.format(Greeting.clockTimePattern(getContext(), fmt), cal);
+        String date = Greeting.clockDate(fmt) ? (String) DateFormat.format("EEEE, d MMMM", cal) : null;
+
+        float margin = 40 * d;
+        float cx;
+        float ty;
+        Paint.Align align;
+        switch (pos) {
+            case Greeting.POS_CENTRE: cx = w / 2f; align = Paint.Align.CENTER; ty = h * 0.5f; break;
+            case Greeting.POS_BR: cx = w - margin; align = Paint.Align.RIGHT; ty = h - 56 * d; break;
+            case Greeting.POS_BL: cx = margin; align = Paint.Align.LEFT; ty = h - 56 * d; break;
+            case Greeting.POS_TOP: cx = w / 2f; align = Paint.Align.CENTER; ty = 76 * d; break;
+            default: cx = w / 2f; align = Paint.Align.CENTER; ty = h * 0.72f; break;
+        }
 
         p.setStyle(Paint.Style.FILL);
-        p.setTextAlign(Paint.Align.CENTER);
+        p.setTextAlign(align);
         p.setColor(0xF2FFFFFF);
         p.setTextSize(64 * d);
-        float ty = h * 0.72f;
-        c.drawText(time, w / 2f, ty, p);
-        p.setColor(0x99FFFFFF);
-        p.setTextSize(18 * d);
-        c.drawText(date, w / 2f, ty + 34 * d, p);
+        c.drawText(time, cx, ty, p);
+        if (date != null) {
+            p.setColor(0x99FFFFFF);
+            p.setTextSize(18 * d);
+            c.drawText(date, cx, ty + 34 * d, p);
+        }
     }
 
     private void drawHint(Canvas c, int w, int h) {

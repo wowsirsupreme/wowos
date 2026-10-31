@@ -22,6 +22,8 @@ public class PersonaliseActivity extends Activity {
     private View idleRow;
     private View contentRow;
     private View scaleRow;
+    private View clockPosRow;
+    private View clockFmtRow;
     private View wallpaperRow;
 
     @Override
@@ -51,6 +53,20 @@ public class PersonaliseActivity extends Activity {
                 "Fill crops to the screen, Fit shows all with bars, Stretch fills exactly", "", new Runnable() {
                     @Override public void run() {
                         Greeting.setIdleScale(PersonaliseActivity.this, (Greeting.idleScale(PersonaliseActivity.this) + 1) % 3);
+                        refresh();
+                    }
+                });
+        clockPosRow = Ui.row(this, idle, R.drawable.ic_star, "Clock position",
+                "Where the clock sits on the idle screen", "", new Runnable() {
+                    @Override public void run() {
+                        Greeting.setIdleClockPos(PersonaliseActivity.this, (Greeting.idleClockPos(PersonaliseActivity.this) + 1) % 6);
+                        refresh();
+                    }
+                });
+        clockFmtRow = Ui.row(this, idle, R.drawable.ic_keyboard, "Clock format",
+                "12/24-hour, seconds and the date", "", new Runnable() {
+                    @Override public void run() {
+                        Greeting.setIdleClockFmt(PersonaliseActivity.this, (Greeting.idleClockFmt(PersonaliseActivity.this) + 1) % 6);
                         refresh();
                     }
                 });
@@ -106,6 +122,8 @@ public class PersonaliseActivity extends Activity {
         Ui.setValue(idleRow, Greeting.idleOn(this) ? "On" : "Off");
         Ui.setValue(contentRow, idleContentLabel());
         Ui.setValue(scaleRow, Greeting.idleScaleLabel(Greeting.idleScale(this)));
+        Ui.setValue(clockPosRow, Greeting.idleClockPosLabel(Greeting.idleClockPos(this)));
+        Ui.setValue(clockFmtRow, Greeting.idleClockFmtLabel(Greeting.idleClockFmt(this)));
         Ui.setValue(wallpaperRow, Greeting.homeWallpaper(this).isEmpty() ? "Built-in" : "Tap to clear");
         int n = Greeting.mine(this).size();
         Ui.setValue(mineRow, n == 0 ? "None yet" : n + (n == 1 ? " message" : " messages"));

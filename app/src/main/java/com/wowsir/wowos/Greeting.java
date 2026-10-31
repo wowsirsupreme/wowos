@@ -24,6 +24,10 @@ final class Greeting {
     static final String K_HOME_WALLPAPER = "home_wallpaper"; // single file path, "" = built-in
     static final String K_IDLE_SCALE = "idle_scale";   // 0 fill (crop) | 1 fit | 2 stretch
     static final int SCALE_FILL = 0, SCALE_FIT = 1, SCALE_STRETCH = 2;
+
+    static final String K_IDLE_CLOCK_POS = "idle_clock_pos"; // 0 lower-centre..5 hidden
+    static final String K_IDLE_CLOCK_FMT = "idle_clock_fmt"; // 0..5, see labels below
+    static final int POS_LOWER = 0, POS_CENTRE = 1, POS_BR = 2, POS_BL = 3, POS_TOP = 4, POS_HIDDEN = 5;
     static final String MODE_ANIM = "anim";
     static final String MODE_PHOTOS = "photos";
     static final String MODE_VIDEO = "video";
@@ -101,6 +105,45 @@ final class Greeting {
     static void setIdleVideo(Context c, String path) {
         prefs(c).edit().putString(K_IDLE_VIDEO, path).apply();
         setIdleMode(c, MODE_VIDEO);
+    }
+
+    static int idleClockPos(Context c) { return prefs(c).getInt(K_IDLE_CLOCK_POS, POS_LOWER); }
+    static void setIdleClockPos(Context c, int p) { prefs(c).edit().putInt(K_IDLE_CLOCK_POS, p).apply(); }
+    static String idleClockPosLabel(int p) {
+        switch (p) {
+            case POS_CENTRE: return "Centre";
+            case POS_BR: return "Bottom right";
+            case POS_BL: return "Bottom left";
+            case POS_TOP: return "Top centre";
+            case POS_HIDDEN: return "Hidden";
+            default: return "Lower centre";
+        }
+    }
+
+    static int idleClockFmt(Context c) { return prefs(c).getInt(K_IDLE_CLOCK_FMT, 0); }
+    static void setIdleClockFmt(Context c, int f) { prefs(c).edit().putInt(K_IDLE_CLOCK_FMT, f).apply(); }
+    static String idleClockFmtLabel(int f) {
+        switch (f) {
+            case 1: return "Time only";
+            case 2: return "12-hour";
+            case 3: return "24-hour";
+            case 4: return "Time & seconds";
+            case 5: return "Time, date & seconds";
+            default: return "Time & date";
+        }
+    }
+    /** Whether to use 24-hour for this format (2/3 force it, otherwise follow the system). */
+    static boolean clock24(Context c, int fmt) {
+        if (fmt == 2) return false;
+        if (fmt == 3) return true;
+        return android.text.format.DateFormat.is24HourFormat(c);
+    }
+    static boolean clockSeconds(int fmt) { return fmt == 4 || fmt == 5; }
+    static boolean clockDate(int fmt) { return fmt == 0 || fmt == 5; }
+    /** SimpleDateFormat time pattern for the chosen format. */
+    static String clockTimePattern(Context c, int fmt) {
+        String base = clock24(c, fmt) ? "HH:mm" : "h:mm";
+        return clockSeconds(fmt) ? base + ":ss" : base;
     }
 
     static int idleScale(Context c) { return prefs(c).getInt(K_IDLE_SCALE, SCALE_FILL); }
