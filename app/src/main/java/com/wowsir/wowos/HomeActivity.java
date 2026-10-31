@@ -15,8 +15,11 @@ import android.graphics.Bitmap;
 import android.graphics.Outline;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
+import android.view.Gravity;
 import android.view.ViewOutlineProvider;
+import android.widget.FrameLayout;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
@@ -429,9 +432,25 @@ public class HomeActivity extends Activity {
         addTile(tile);
     }
 
+    private static final String GLOW_TAG = "wow_glow";
+
     private void addTile(View tile) {
-        // Rounded outline so the focus glow (tinted shadow) follows the tile shape,
-        // and don't clip to it so the glow can spread outside the tile.
+        // A real glow halo drawn behind the tile (radial gradient), faded in on focus.
+        // This renders on any ROM, unlike Android's tinted shadow which the HiSilicon
+        // box ignores. The tile stops clipping so the halo can spill outside it.
+        if (tile instanceof FrameLayout) {
+            FrameLayout f = (FrameLayout) tile;
+            f.setClipChildren(false);
+            f.setClipToPadding(false);
+            View glow = new View(this);
+            glow.setTag(GLOW_TAG);
+            int extra = dp(40);
+            FrameLayout.LayoutParams glp = new FrameLayout.LayoutParams(dp(118) + extra, dp(118) + extra);
+            glp.gravity = Gravity.CENTER;
+            glow.setLayoutParams(glp);
+            glow.setAlpha(0f);
+            f.addView(glow, 0);           // behind the icon
+        }
         tile.setOutlineProvider(new ViewOutlineProvider() {
             @Override public void getOutline(View v, Outline o) {
                 o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), dp(22));
@@ -439,8 +458,19 @@ public class HomeActivity extends Activity {
         });
         tile.setClipToOutline(false);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(118), dp(118));
-        lp.setMarginEnd(dp(26));          // roomier spacing, like the stock rows
+        lp.setMarginEnd(dp(38));          // clearly spaced out, like the stock rows
         appRow.addView(tile, lp);
+    }
+
+    /** A soft radial halo in the accent colour, for the focus glow behind a tile. */
+    private Drawable makeGlow(int color) {
+        GradientDrawable g = new GradientDrawable();
+        g.setShape(GradientDrawable.RECTANGLE);
+        g.setCornerRadius(dp(30));
+        g.setGradientType(GradientDrawable.RADIAL_GRADIENT);
+        g.setGradientRadius(dp(78));
+        g.setColors(new int[]{ (color & 0x00FFFFFF) | 0xB3000000, (color & 0x00FFFFFF) });
+        return g;
     }
 
     /** Centre-pivot PS5 bloom: a hovered tile scales evenly in every direction into
@@ -451,7 +481,14 @@ public class HomeActivity extends Activity {
             @Override public void run() {
                 v.setPivotX(v.getWidth() / 2f);
                 v.setPivotY(v.getHeight() / 2f);     // bloom from the centre, not a rail
-                if (Build.VERSION.SDK_INT >= 28) {   // tinted shadow = soft glow (Android 9+)
+                if (v instanceof ViewGroup) {        // the real glow halo behind the tile
+                    View glow = ((ViewGroup) v).getChildAt(0);
+                    if (glow != null && GLOW_TAG.equals(glow.getTag())) {
+                        glow.setBackground(makeGlow(glowColor));
+                        glow.animate().alpha(focused ? 1f : 0f).setDuration(200).start();
+                    }
+                }
+                if (Build.VERSION.SDK_INT >= 28) {   // tinted shadow too, where the ROM honours it
                     v.setOutlineSpotShadowColor(focused ? glowColor : 0xFF000000);
                     v.setOutlineAmbientShadowColor(focused ? glowColor : 0xFF000000);
                 }
