@@ -364,7 +364,7 @@ public class HomeActivity extends Activity {
     /** Big, top-anchored zoom so a hovered tile blows up downward into the open area. */
     private void zoom(View v, boolean focused) {
         v.setPivotX(v.getWidth() / 2f);
-        v.setPivotY(v.getHeight() / 2f);     // grow from the centre so nothing is cut at the top
+        v.setPivotY(0f);                      // anchor the top so it can't be cut; bloom downward
         float s = focused ? 1.45f : 1f;
         v.animate().scaleX(s).scaleY(s).translationZ(focused ? 28f : 0f)
                 .setDuration(190).setInterpolator(new android.view.animation.OvershootInterpolator(1.2f))
