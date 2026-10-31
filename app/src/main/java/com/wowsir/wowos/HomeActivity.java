@@ -153,6 +153,7 @@ public class HomeActivity extends Activity {
     /** Show the user's own home wallpaper when they've set one; otherwise fall back
      *  to the built-in background. Reloaded on every resume so a change in WOW Files
      *  takes effect as soon as you return to the home screen. */
+    private static final int DEFAULT_ACCENT = 0xFF4F9BFF;
     private String appliedWallpaper = null;
     private void applyWallpaper() {
         String path = Greeting.homeWallpaper(this);
@@ -160,6 +161,7 @@ public class HomeActivity extends Activity {
             homeWallpaper.setImageDrawable(null);
             homeWallpaper.setVisibility(View.GONE);
             appliedWallpaper = null;
+            applyAccent(DEFAULT_ACCENT);
             return;
         }
         if (path.equals(appliedWallpaper)) return;   // already shown; don't re-decode
@@ -169,11 +171,23 @@ public class HomeActivity extends Activity {
         if (bmp == null) {
             homeWallpaper.setVisibility(View.GONE);
             appliedWallpaper = null;
+            applyAccent(DEFAULT_ACCENT);
             return;
         }
         homeWallpaper.setImageBitmap(bmp);
         homeWallpaper.setVisibility(View.VISIBLE);
         appliedWallpaper = path;
+        applyAccent(ColorExtract.accent(bmp, DEFAULT_ACCENT));
+    }
+
+    /** Tint the Open button and the "pinned/WOW OS" tag with the wallpaper accent. */
+    private void applyAccent(int color) {
+        try {
+            btnOpen.setBackgroundTintList(android.content.res.ColorStateList.valueOf(color));
+            if (btnOpen instanceof TextView)
+                ((TextView) btnOpen).setTextColor(ColorExtract.isLight(color) ? 0xFF0B0E1A : 0xFFFFFFFF);
+        } catch (Throwable ignored) { }
+        try { heroTag.setTextColor(color); } catch (Throwable ignored) { }
     }
 
     /** Decode a file no larger than the screen so a huge photo can't exhaust the heap. */
@@ -451,7 +465,15 @@ public class HomeActivity extends Activity {
                 // is clamped to the screen and is NOT the true content width. Measure the
                 // content from the last child, or scrolling right is impossible (min == 0).
                 View last = appRow.getChildAt(appRow.getChildCount() - 1);
-                int contentW = last.getRight() + appRow.getPaddingRight();
+                int byEdge = last.getRight() + appRow.getPaddingRight();
+                // Independent measure in case getRight() comes back clamped on this ROM.
+                int bySum = appRow.getPaddingLeft() + appRow.getPaddingRight();
+                for (int i = 0; i < appRow.getChildCount(); i++) {
+                    View c = appRow.getChildAt(i);
+                    ViewGroup.MarginLayoutParams mlp = (ViewGroup.MarginLayoutParams) c.getLayoutParams();
+                    bySum += c.getWidth() + mlp.leftMargin + mlp.rightMargin;
+                }
+                int contentW = Math.max(byEdge, bySum);
                 float cur = appRow.getTranslationX();
                 int margin = dp(90);                       // keep this much clear of each edge
                 int leftOnScreen = (int) (v.getLeft() + cur);

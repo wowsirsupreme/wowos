@@ -1,11 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item>
-        <shape android:shape="rectangle">
-            <corners android:radius="26dp" />
-            <gradient android:angle="315" android:startColor="#FF38BDF8" android:endColor="#FF0369A1" />
-        </shape>
-    </item>
-    <item android:left="20dp" android:right="20dp" android:top="20dp" android:bottom="20dp"
-        android:drawable="@drawable/ic_hdmi" />
-</layer-list>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+
+    <path android:pathData="M8,30 a22,22 0 0 1 22,-22 h48 a22,22 0 0 1 22,22 v48 a22,22 0 0 1 -22,22 h-48 a22,22 0 0 1 -22,-22 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="54" android:startY="6" android:endX="54" android:endY="102">
+                <item android:offset="0" android:color="#2C313C" />
+                <item android:offset="1" android:color="#0E1117" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- cable -->
+    <path android:pathData="M49,74 h10 v18 h-10 Z" android:fillColor="#5C6675" />
+    <!-- HDMI shell -->
+    <path android:pathData="M30,34 h48 v22 l-9,10 h-30 l-9,-10 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="54" android:startY="34" android:endX="54" android:endY="66">
+                <item android:offset="0" android:color="#EDF1F7" />
+                <item android:offset="0.5" android:color="#BFC9D7" />
+                <item android:offset="1" android:color="#8B97A7" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- gold contacts -->
+    <path android:pathData="M37,40 h34 v9 h-34 Z" android:fillColor="#141821" />
+    <path android:pathData="M39,42 h4 v5 h-4 Z M45,42 h4 v5 h-4 Z M51,42 h4 v5 h-4 Z M57,42 h4 v5 h-4 Z M63,42 h4 v5 h-4 Z"
+        android:fillColor="#E7B44D" />
+</vector>

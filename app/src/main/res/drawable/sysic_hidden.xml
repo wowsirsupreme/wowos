@@ -1,11 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item>
-        <shape android:shape="rectangle">
-            <corners android:radius="26dp" />
-            <gradient android:angle="315" android:startColor="#FF94A3B8" android:endColor="#FF334155" />
-        </shape>
-    </item>
-    <item android:left="20dp" android:right="20dp" android:top="20dp" android:bottom="20dp"
-        android:drawable="@drawable/ic_hidden" />
-</layer-list>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+
+    <path android:pathData="M8,30 a22,22 0 0 1 22,-22 h48 a22,22 0 0 1 22,22 v48 a22,22 0 0 1 -22,22 h-48 a22,22 0 0 1 -22,-22 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="54" android:startY="6" android:endX="54" android:endY="102">
+                <item android:offset="0" android:color="#2C313C" />
+                <item android:offset="1" android:color="#0E1117" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- eye -->
+    <path android:fillType="evenOdd"
+        android:pathData="M54,36 c18,0 30,13 34,18 c-4,5 -16,18 -34,18 c-18,0 -30,-13 -34,-18 c4,-5 16,-18 34,-18 Z M54,44 a10,10 0 1 0 0.1,0 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="54" android:startY="36" android:endX="54" android:endY="72">
+                <item android:offset="0" android:color="#EDF1F7" /><item android:offset="1" android:color="#93A0B0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path android:pathData="M54,47 a7,7 0 1 0 0.1,0 Z" android:fillColor="#141821" />
+    <!-- slash -->
+    <path android:pathData="M28,30 l52,48 l-5,5 l-52,-48 Z" android:fillColor="#E7613D" />
+</vector>

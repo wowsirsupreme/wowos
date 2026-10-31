@@ -1,11 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item>
-        <shape android:shape="rectangle">
-            <corners android:radius="26dp" />
-            <gradient android:angle="315" android:startColor="#FF4F9BFF" android:endColor="#FF1D4ED8" />
-        </shape>
-    </item>
-    <item android:left="20dp" android:right="20dp" android:top="20dp" android:bottom="20dp"
-        android:drawable="@drawable/ic_folder" />
-</layer-list>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+
+    <!-- gunmetal tile -->
+    <path android:pathData="M8,30 a22,22 0 0 1 22,-22 h48 a22,22 0 0 1 22,22 v48 a22,22 0 0 1 -22,22 h-48 a22,22 0 0 1 -22,-22 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="54" android:startY="6" android:endX="54" android:endY="102">
+                <item android:offset="0" android:color="#2C313C" />
+                <item android:offset="1" android:color="#0E1117" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- handle -->
+    <path android:pathData="M43,47 v-6 a9,9 0 0 1 9,-9 h4 a9,9 0 0 1 9,9 v6 h-6 v-6 a3,3 0 0 0 -3,-3 h-4 a3,3 0 0 0 -3,3 v6 Z"
+        android:fillColor="#C6D0DD" />
+
+    <!-- case body -->
+    <path android:pathData="M28,46 h52 a7,7 0 0 1 7,7 v29 a7,7 0 0 1 -7,7 h-52 a7,7 0 0 1 -7,-7 v-29 a7,7 0 0 1 7,-7 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="54" android:startY="46" android:endX="54" android:endY="89">
+                <item android:offset="0" android:color="#EDF1F7" />
+                <item android:offset="0.5" android:color="#BFC9D7" />
+                <item android:offset="1" android:color="#8B97A7" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- top sheen -->
+    <path android:pathData="M28,46 h52 a7,7 0 0 1 7,7 v2 h-66 v-2 a7,7 0 0 1 7,-7 Z" android:fillColor="#F7FAFF" android:fillAlpha="0.55" />
+    <!-- clasp band -->
+    <path android:pathData="M21,62 h66 v4 h-66 Z" android:fillColor="#6E7988" android:fillAlpha="0.8" />
+    <!-- brass latches -->
+    <path android:pathData="M40,59 h9 v10 h-9 Z" android:fillColor="#E7B44D" />
+    <path android:pathData="M59,59 h9 v10 h-9 Z" android:fillColor="#E7B44D" />
+    <path android:pathData="M42.5,62.5 h4 v4 h-4 Z" android:fillColor="#8A6A1E" />
+    <path android:pathData="M61.5,62.5 h4 v4 h-4 Z" android:fillColor="#8A6A1E" />
+</vector>

@@ -1,11 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item>
-        <shape android:shape="rectangle">
-            <corners android:radius="26dp" />
-            <gradient android:angle="315" android:startColor="#FFF472B6" android:endColor="#FFBE185D" />
-        </shape>
-    </item>
-    <item android:left="20dp" android:right="20dp" android:top="20dp" android:bottom="20dp"
-        android:drawable="@drawable/ic_cast" />
-</layer-list>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+
+    <path android:pathData="M8,30 a22,22 0 0 1 22,-22 h48 a22,22 0 0 1 22,22 v48 a22,22 0 0 1 -22,22 h-48 a22,22 0 0 1 -22,-22 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="54" android:startY="6" android:endX="54" android:endY="102">
+                <item android:offset="0" android:color="#2C313C" />
+                <item android:offset="1" android:color="#0E1117" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- screen frame -->
+    <path android:pathData="M24,30 h60 a6,6 0 0 1 6,6 v36 a6,6 0 0 1 -6,6 h-60 a6,6 0 0 1 -6,-6 v-36 a6,6 0 0 1 6,-6 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="54" android:startY="30" android:endX="54" android:endY="78">
+                <item android:offset="0" android:color="#D7DEE8" />
+                <item android:offset="1" android:color="#8B97A7" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- inner screen -->
+    <path android:pathData="M28,36 h52 v34 h-52 Z" android:fillColor="#141821" />
+    <!-- cast waves -->
+    <path android:pathData="M34,64 a0,0 0 0 1 0,0 m0,-10 a10,10 0 0 1 10,10 h-4 a6,6 0 0 0 -6,-6 Z" android:fillColor="#4F9BFF" />
+    <path android:pathData="M34,54 a0,0 0 0 1 0,0 m0,-7 a17,17 0 0 1 17,17 h-4 a13,13 0 0 0 -13,-13 Z" android:fillColor="#4F9BFF" />
+    <path android:pathData="M35,66 a3,3 0 1 0 0.1,0 Z" android:fillColor="#4F9BFF" />
+    <!-- stand -->
+    <path android:pathData="M48,78 h12 v8 h-12 Z" android:fillColor="#9AA6B6" />
+    <path android:pathData="M38,86 h32 a3,3 0 0 1 3,3 h-38 a3,3 0 0 1 3,-3 Z" android:fillColor="#C6D0DD" />
+</vector>

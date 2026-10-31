@@ -7,6 +7,8 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.provider.Settings;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -169,21 +171,40 @@ public class RecentsActivity extends Activity {
         if (d.getWindow() != null) d.getWindow().setBackgroundDrawableResource(R.drawable.dialog_glass);
     }
 
-    /** End an app: force-stop it (system app), kill background, and drop its task. */
+    /**
+     * End an app. forceStopPackage / removeTask are signature-level permissions; a
+     * sideloaded (non-platform-signed) build can't call them, so the reflection throws
+     * SecurityException. We attempt the direct stop, and when it's denied we send the
+     * user to the system Force-stop screen, which ends the app on any ROM.
+     */
     private void end(Task t) {
         ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        boolean forced = false;
         if (am != null) {
             try { am.killBackgroundProcesses(t.pkg); } catch (Throwable ignored) { }
-            try { ActivityManager.class.getMethod("forceStopPackage", String.class).invoke(am, t.pkg); } catch (Throwable ignored) { }
+            try {
+                ActivityManager.class.getMethod("forceStopPackage", String.class).invoke(am, t.pkg);
+                forced = true;                      // only true if no SecurityException
+            } catch (Throwable denied) { forced = false; }
             if (t.id >= 0) {
                 try { ActivityManager.class.getMethod("removeTask", int.class).invoke(am, t.id); } catch (Throwable ignored) { }
             }
         }
-        Toast.makeText(this, "Ended " + t.label, Toast.LENGTH_SHORT).show();
-        // Rebuild the list after a moment so the ended app drops off.
-        new android.os.Handler(getMainLooper()).postDelayed(new Runnable() {
-            @Override public void run() { buildUi(collect()); }
-        }, 400);
+        if (forced) {
+            Toast.makeText(this, "Ended " + t.label, Toast.LENGTH_SHORT).show();
+            new android.os.Handler(getMainLooper()).postDelayed(new Runnable() {
+                @Override public void run() { buildUi(collect()); }
+            }, 400);
+        } else {
+            // Can't stop it directly on this ROM — open the system force-stop page.
+            Toast.makeText(this, "Tap “Force stop” to end " + t.label, Toast.LENGTH_LONG).show();
+            try {
+                startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.parse("package:" + t.pkg)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            } catch (Throwable e) {
+                Toast.makeText(this, "Couldn't open settings for " + t.label, Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 
     @Override
