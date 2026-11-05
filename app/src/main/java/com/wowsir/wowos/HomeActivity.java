@@ -168,6 +168,47 @@ public class HomeActivity extends Activity {
         ui.post(clockTick);
         ui.postDelayed(statusTick, STATUS_REFRESH_MS);
         scheduleIdle();
+        if (!autoChecked) {
+            autoChecked = true;
+            ui.postDelayed(new Runnable() { @Override public void run() { if (isOnline()) checkUpdate(false); } }, 4000);
+        }
+    }
+
+    private boolean autoChecked;
+
+    private boolean isOnline() {
+        try {
+            ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+            NetworkInfo ni = cm == null ? null : cm.getActiveNetworkInfo();
+            return ni != null && ni.isConnected();
+        } catch (Throwable t) { return false; }
+    }
+
+    /** Check GitHub for a newer release. Manual check also reports "up to date". */
+    private void checkUpdate(final boolean manual) {
+        if (manual) toast("Checking for updates…");
+        Updater.check(this, new Updater.Check() {
+            @Override public void result(boolean updateAvailable, int code, String name) {
+                if (updateAvailable) promptUpdate(name);
+                else if (manual) toast("WOW OS is up to date");
+            }
+        });
+    }
+
+    private void promptUpdate(final String name) {
+        AlertDialog d = new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle("Update available")
+                .setMessage("WOW OS " + (name == null ? "" : name) + " is ready to install.")
+                .setPositiveButton("Install", new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface di, int w) {
+                        toast("Downloading update…");
+                        Updater.downloadAndInstall(HomeActivity.this, new Runnable() {
+                            @Override public void run() { toast("Update download failed"); }
+                        });
+                    }
+                })
+                .setNegativeButton("Later", null).create();
+        showGlass(d);
     }
 
     /** Clock shows the NTP-corrected time, so it stays right even when the TV's own
@@ -473,6 +514,7 @@ public class HomeActivity extends Activity {
         t.add(toolTile(R.drawable.sysic_personalise, "Personalise", new Runnable() { @Override public void run() {
             tryStart(new Intent(HomeActivity.this, PersonaliseActivity.class)); } }, false));
         t.add(toolTile(R.drawable.sysic_hidden, "Hidden apps", new Runnable() { @Override public void run() { showHiddenManager(); } }, false));
+        t.add(toolTile(R.drawable.sysic_update, "Update", new Runnable() { @Override public void run() { checkUpdate(true); } }, false));
         return t;
     }
 
