@@ -173,6 +173,8 @@ public class IdleActivity extends Activity {
             player.setSurface(surface);
             player.setDataSource(Greeting.idleVideo(this));
             player.setVolume(0f, 0f);
+            player.setLooping(true);                 // native seamless loop (primary)
+            player.setScreenOnWhilePlaying(true);
             player.setOnVideoSizeChangedListener(new MediaPlayer.OnVideoSizeChangedListener() {
                 @Override public void onVideoSizeChanged(MediaPlayer m, int w, int h) {
                     videoW = w; videoH = h; updateVideoTransform();

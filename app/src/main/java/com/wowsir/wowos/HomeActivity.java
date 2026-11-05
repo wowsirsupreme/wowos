@@ -20,6 +20,8 @@ import android.os.Build;
 import android.view.Gravity;
 import android.view.ViewOutlineProvider;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
+import android.widget.ScrollView;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
@@ -69,6 +71,8 @@ public class HomeActivity extends Activity {
 
     private LinearLayout appRow;
     private android.widget.FrameLayout appScroll;
+    private ScrollView homeScroll;
+    private LinearLayout rowsContainer;
     private ImageView heroA, heroB, heroIcon, homeWallpaper;
     private boolean heroShowingA = true;
     private TextView heroTitle, heroTag;
@@ -77,6 +81,8 @@ public class HomeActivity extends Activity {
     private ImageView netDot, usbDot;
     private TextView netText, usbText, nextText;
     private View nextChip;
+    private TextView greetingHello, greetingMsg, clock;
+    private String lastMsg = "";
 
     private final List<AppEntry> allApps = new ArrayList<>();
     private final Map<String, AppEntry> byPkg = new HashMap<>();
@@ -98,6 +104,8 @@ public class HomeActivity extends Activity {
 
         appRow = findViewById(R.id.app_row);
         appScroll = findViewById(R.id.app_scroll);
+        homeScroll = findViewById(R.id.home_scroll);
+        rowsContainer = findViewById(R.id.rows_container);
         heroA = findViewById(R.id.hero_a);
         heroB = findViewById(R.id.hero_b);
         heroIcon = findViewById(R.id.hero_icon);
@@ -114,6 +122,9 @@ public class HomeActivity extends Activity {
         usbText = findViewById(R.id.usb_text);
         nextChip = findViewById(R.id.next_chip);
         nextText = findViewById(R.id.next_text);
+        greetingHello = findViewById(R.id.greeting_hello);
+        greetingMsg = findViewById(R.id.greeting_msg);
+        clock = findViewById(R.id.clock);
 
         // Force clipping off the whole ancestor chain so a focused tile's bloom can
         // never be cut by a ROM that doesn't honour the XML clipChildren flag.
@@ -152,8 +163,37 @@ public class HomeActivity extends Activity {
         TimeSync.syncSoon(this);
         refreshStatus();
         applyWallpaper();
+        refreshGreeting();
+        ui.removeCallbacks(clockTick);
+        ui.post(clockTick);
         ui.postDelayed(statusTick, STATUS_REFRESH_MS);
         scheduleIdle();
+    }
+
+    /** Clock shows the NTP-corrected time, so it stays right even when the TV's own
+     *  system clock is wrong (we can't set the system clock without system privileges). */
+    private final Runnable clockTick = new Runnable() {
+        @Override public void run() {
+            boolean h24 = android.text.format.DateFormat.is24HourFormat(HomeActivity.this);
+            try { clock.setText(android.text.format.DateFormat.format(h24 ? "HH:mm" : "h:mm", TimeSync.nowMillis())); } catch (Throwable ignored) { }
+            ui.postDelayed(this, 15_000);
+        }
+    };
+
+    /** Time-aware greeting and a rotating message, honouring the Personalise toggle. */
+    private void refreshGreeting() {
+        if (greetingHello == null) return;
+        if (!Greeting.show(this)) {
+            greetingHello.setVisibility(View.GONE);
+            greetingMsg.setVisibility(View.GONE);
+            return;
+        }
+        greetingHello.setVisibility(View.VISIBLE);
+        greetingHello.setText(Greeting.hello(this));
+        String m = Greeting.message(this, lastMsg);
+        lastMsg = m;
+        greetingMsg.setText(m);
+        greetingMsg.setVisibility(m == null || m.isEmpty() ? View.GONE : View.VISIBLE);
     }
 
     /** Show the user's own home wallpaper when they've set one; otherwise fall back
@@ -225,6 +265,7 @@ public class HomeActivity extends Activity {
     protected void onPause() {
         super.onPause();
         ui.removeCallbacks(statusTick);
+        ui.removeCallbacks(clockTick);
         ui.removeCallbacks(idleRunnable);
     }
 
@@ -347,26 +388,85 @@ public class HomeActivity extends Activity {
         return out;
     }
 
+    private static final String EXTRA_ROW = "wow_extra_row";
+
     private void renderRow() {
         String keepFocusPkg = current != null ? current.pkg : null;
+
         appRow.removeAllViews();
-        for (AppEntry e : ordered()) addAppTile(e);
-        addToolTiles();
+        for (int i = rowsContainer.getChildCount() - 1; i >= 0; i--) {
+            if (EXTRA_ROW.equals(rowsContainer.getChildAt(i).getTag())) rowsContainer.removeViewAt(i);
+        }
+
+        List<AppEntry> apps = ordered();
+        for (AppEntry e : apps) addTile(appTile(e, true), appRow, dp(38), dp(118), dp(118));
+
+        // Streaming: WIDE banner tiles using each app's own banner art (relevant per app).
+        List<View> streaming = new ArrayList<>();
+        for (AppEntry e : streamingApps(apps)) streaming.add(bannerTile(e));
+        if (!streaming.isEmpty()) rowsContainer.addView(makeRow("STREAMING", streaming, dp(228), dp(128)));
+
+        rowsContainer.addView(makeRow("WOW OS", toolTiles(), dp(118), dp(118)));
+
+        if (InputSwitch.available(this)) {
+            List<View> inputs = new ArrayList<>();
+            for (final InputSwitch.Input in : InputSwitch.inputs()) {
+                int ic = in.label.toLowerCase(Locale.ROOT).contains("tv") ? R.drawable.sysic_tv : R.drawable.sysic_input;
+                inputs.add(toolTile(ic, in.label, new Runnable() {
+                    @Override public void run() { String err = InputSwitch.select(HomeActivity.this, in.enumName); if (err != null) toast(err); }
+                }, false));
+            }
+            if (!inputs.isEmpty()) rowsContainer.addView(makeRow("INPUTS", inputs, dp(118), dp(118)));
+        }
 
         View focusTarget = null;
         if (keepFocusPkg != null) {
             for (int i = 0; i < appRow.getChildCount(); i++) {
                 Object t = appRow.getChildAt(i).getTag();
-                if (t instanceof AppEntry && ((AppEntry) t).pkg.equals(keepFocusPkg)) {
-                    focusTarget = appRow.getChildAt(i); break;
-                }
+                if (t instanceof AppEntry && ((AppEntry) t).pkg.equals(keepFocusPkg)) { focusTarget = appRow.getChildAt(i); break; }
             }
         }
         if (focusTarget == null && appRow.getChildCount() > 0) focusTarget = appRow.getChildAt(0);
         if (focusTarget != null) focusTarget.requestFocus();
     }
 
-    private void addAppTile(final AppEntry e) {
+    /** Package/label keywords that put an app in the Streaming row. */
+    private static final String[] STREAM_KEYS = {
+            "netflix", "youtube", "primevideo", "amazon", "disney", "spotify", "hbo", "max",
+            "hulu", "plex", "kodi", "mubi", "crunchyroll", "twitch", "dailymotion", "showmax",
+            "viu", "iflix", "tubi", "vlc", "mxplayer", "yupptv", "zee", "tidal", "deezer", "iqiyi"
+    };
+
+    private List<AppEntry> streamingApps(List<AppEntry> apps) {
+        List<AppEntry> out = new ArrayList<>();
+        for (AppEntry e : apps) {
+            String hay = (e.pkg + " " + e.label).toLowerCase(Locale.ROOT);
+            for (String k : STREAM_KEYS) { if (hay.contains(k)) { out.add(e); break; } }
+        }
+        return out;
+    }
+
+    private List<View> toolTiles() {
+        List<View> t = new ArrayList<>();
+        t.add(toolTile(R.drawable.sysic_files, "Files", new Runnable() { @Override public void run() {
+            tryStart(new Intent(HomeActivity.this, FilesActivity.class)); } }, false));
+        t.add(toolTile(R.drawable.sysic_planner, "Planner", new Runnable() { @Override public void run() {
+            PlannerActivity.open(HomeActivity.this, null); } }, false));
+        t.add(toolTile(R.drawable.sysic_connections, "Connections", new Runnable() { @Override public void run() {
+            tryStart(new Intent(HomeActivity.this, ConnectionsActivity.class)); } }, false));
+        t.add(toolTile(R.drawable.sysic_mirror, "Screen mirror", new Runnable() { @Override public void run() {
+            AppEntry e = byPkg.get("com.wowsir.airwow");
+            if (e == null) e = findApp("airwow", "airplay", "airpin", "mirror", "miracast", "eshare", "cast");
+            if (e != null) launch(e); else toast("No screen-mirroring app found"); } }, false));
+        t.add(toolTile(R.drawable.sysic_alerts, "Alerts", new Runnable() { @Override public void run() {
+            tryStart(new Intent(HomeActivity.this, AlertSettingsActivity.class)); } }, false));
+        t.add(toolTile(R.drawable.sysic_personalise, "Personalise", new Runnable() { @Override public void run() {
+            tryStart(new Intent(HomeActivity.this, PersonaliseActivity.class)); } }, false));
+        t.add(toolTile(R.drawable.sysic_hidden, "Hidden apps", new Runnable() { @Override public void run() { showHiddenManager(); } }, false));
+        return t;
+    }
+
+    private View appTile(final AppEntry e, final boolean sliding) {
         View tile = inflater.inflate(R.layout.item_ps5_tile, appRow, false);
         ImageView icon = tile.findViewById(R.id.icon);
         try { icon.setImageDrawable(e.newIcon(pm, res)); } catch (Throwable ignored) { }
@@ -374,70 +474,95 @@ public class HomeActivity extends Activity {
         tile.setTag(e);
         tile.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override public void onFocusChange(View v, boolean has) {
-                zoom(v, has);
+                doZoom(v, has);
+                if (has && sliding) keepClear(v);
                 if (has) setApp(e);
             }
         });
-        tile.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { launch(e); }
-        });
-        tile.setOnLongClickListener(new View.OnLongClickListener() {
-            @Override public boolean onLongClick(View v) { showAppOptions(e); return true; }
-        });
-        addTile(tile);
+        tile.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) { launch(e); } });
+        tile.setOnLongClickListener(new View.OnLongClickListener() { @Override public boolean onLongClick(View v) { showAppOptions(e); return true; } });
+        return tile;
     }
 
-    /** WOW OS tools shown as real app-style icon tiles (not hidden behind a menu). */
-    private void addToolTiles() {
-        addToolTile(R.drawable.sysic_files, "Files", new Runnable() { @Override public void run() {
-            tryStart(new Intent(HomeActivity.this, FilesActivity.class)); } });
-        addToolTile(R.drawable.sysic_planner, "Planner", new Runnable() { @Override public void run() {
-            PlannerActivity.open(HomeActivity.this, null); } });
-        addToolTile(R.drawable.sysic_connections, "Connections", new Runnable() { @Override public void run() {
-            tryStart(new Intent(HomeActivity.this, ConnectionsActivity.class)); } });
-        addToolTile(R.drawable.sysic_mirror, "Screen mirror", new Runnable() { @Override public void run() {
-            AppEntry e = byPkg.get("com.wowsir.airwow");
-            if (e == null) e = findApp("airwow", "airplay", "airpin", "mirror", "miracast", "eshare", "cast");
-            if (e != null) launch(e); else toast("No screen-mirroring app found"); } });
-        addToolTile(R.drawable.sysic_alerts, "Alerts", new Runnable() { @Override public void run() {
-            tryStart(new Intent(HomeActivity.this, AlertSettingsActivity.class)); } });
-        addToolTile(R.drawable.sysic_personalise, "Personalise", new Runnable() { @Override public void run() {
-            tryStart(new Intent(HomeActivity.this, PersonaliseActivity.class)); } });
-        addToolTile(R.drawable.sysic_hidden, "Hidden apps", new Runnable() { @Override public void run() { showHiddenManager(); } });
-        if (InputSwitch.available(this)) {
-            for (final InputSwitch.Input in : InputSwitch.inputs()) {
-                int ic = in.label.toLowerCase(Locale.ROOT).contains("tv") ? R.drawable.sysic_tv : R.drawable.sysic_input;
-                addToolTile(ic, in.label, new Runnable() { @Override public void run() {
-                    String err = InputSwitch.select(HomeActivity.this, in.enumName);
-                    if (err != null) toast(err); } });
-            }
-        }
-    }
-
-    private void addToolTile(final int iconRes, final String title, final Runnable run) {
+    private View toolTile(final int iconRes, final String title, final Runnable run, final boolean sliding) {
         View tile = inflater.inflate(R.layout.item_ps5_tile, appRow, false);
         ImageView icon = tile.findViewById(R.id.icon);
         icon.setImageResource(iconRes);
-        icon.setPadding(dp(8), dp(8), dp(8), dp(8));   // colored app-style icon fills the tile
+        icon.setPadding(dp(8), dp(8), dp(8), dp(8));
         tile.setFocusable(true);
         tile.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override public void onFocusChange(View v, boolean has) {
-                zoom(v, has);
+                doZoom(v, has);
+                if (has && sliding) keepClear(v);
                 if (has) setAction(iconRes, title, run);
             }
         });
-        tile.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { run.run(); }
+        tile.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) { run.run(); } });
+        return tile;
+    }
+
+    /** A wide banner tile: shows the app's own banner art, falling back to its icon. */
+    private View bannerTile(final AppEntry e) {
+        View tile = inflater.inflate(R.layout.item_ps5_tile, appRow, false);
+        ImageView icon = tile.findViewById(R.id.icon);
+        ImageView banner = tile.findViewById(R.id.banner);
+        boolean shown = false;
+        try {
+            if (e.hasBanner(pm)) {
+                banner.setImageDrawable(e.newArt(pm, res));
+                banner.setVisibility(View.VISIBLE);
+                icon.setVisibility(View.GONE);
+                shown = true;
+            }
+        } catch (Throwable ignored) { }
+        if (!shown) { try { icon.setImageDrawable(e.newIcon(pm, res)); } catch (Throwable ignored) { } }
+        tile.setFocusable(true);
+        tile.setTag(e);
+        tile.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override public void onFocusChange(View v, boolean has) { doZoom(v, has); if (has) setApp(e); }
         });
-        addTile(tile);
+        tile.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) { launch(e); } });
+        tile.setOnLongClickListener(new View.OnLongClickListener() { @Override public boolean onLongClick(View v) { showAppOptions(e); return true; } });
+        return tile;
+    }
+
+    /** A labelled horizontal row (native scrolling) for a lower section. */
+    private View makeRow(String label, List<View> tiles, int tileW, int tileH) {
+        LinearLayout block = new LinearLayout(this);
+        block.setOrientation(LinearLayout.VERTICAL);
+        block.setClipChildren(false);
+        block.setClipToPadding(false);
+        block.setTag(EXTRA_ROW);
+
+        TextView lab = new TextView(this);
+        lab.setText(label);
+        lab.setTextColor(0x99FFFFFF);
+        lab.setTextSize(13);
+        lab.setLetterSpacing(0.12f);
+        LinearLayout.LayoutParams labLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        labLp.leftMargin = dp(44);
+        labLp.topMargin = dp(20);
+        block.addView(lab, labLp);
+
+        HorizontalScrollView hsv = new HorizontalScrollView(this);
+        hsv.setHorizontalScrollBarEnabled(false);
+        hsv.setClipChildren(false);
+        hsv.setClipToPadding(false);
+        hsv.setPadding(dp(44), dp(16), dp(44), dp(24));
+        LinearLayout inner = new LinearLayout(this);
+        inner.setOrientation(LinearLayout.HORIZONTAL);
+        inner.setClipChildren(false);
+        for (View t : tiles) addTile(t, inner, dp(26), tileW, tileH);
+        hsv.addView(inner);
+        block.addView(hsv, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        return block;
     }
 
     private static final String GLOW_TAG = "wow_glow";
 
-    private void addTile(View tile) {
-        // A real glow halo drawn behind the tile (radial gradient), faded in on focus.
-        // This renders on any ROM, unlike Android's tinted shadow which the HiSilicon
-        // box ignores. The tile stops clipping so the halo can spill outside it.
+    private void addTile(View tile, LinearLayout target, int marginEnd, int w, int h) {
         if (tile instanceof FrameLayout) {
             FrameLayout f = (FrameLayout) tile;
             f.setClipChildren(false);
@@ -445,21 +570,19 @@ public class HomeActivity extends Activity {
             View glow = new View(this);
             glow.setTag(GLOW_TAG);
             int extra = dp(40);
-            FrameLayout.LayoutParams glp = new FrameLayout.LayoutParams(dp(118) + extra, dp(118) + extra);
+            FrameLayout.LayoutParams glp = new FrameLayout.LayoutParams(w + extra, h + extra);
             glp.gravity = Gravity.CENTER;
             glow.setLayoutParams(glp);
             glow.setAlpha(0f);
-            f.addView(glow, 0);           // behind the icon
+            f.addView(glow, 0);
         }
         tile.setOutlineProvider(new ViewOutlineProvider() {
-            @Override public void getOutline(View v, Outline o) {
-                o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), dp(22));
-            }
+            @Override public void getOutline(View v, Outline o) { o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), dp(22)); }
         });
         tile.setClipToOutline(false);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(118), dp(118));
-        lp.setMarginEnd(dp(38));          // clearly spaced out, like the stock rows
-        appRow.addView(tile, lp);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(w, h);
+        lp.setMarginEnd(marginEnd);
+        target.addView(tile, lp);
     }
 
     /** A soft radial halo in the accent colour, for the focus glow behind a tile. */
@@ -476,7 +599,7 @@ public class HomeActivity extends Activity {
     /** Centre-pivot PS5 bloom: a hovered tile scales evenly in every direction into
      *  the clear space around the row. Pivots are set from the measured size (posted
      *  if the tile hasn't been laid out yet, e.g. the very first auto-focus). */
-    private void zoom(final View v, final boolean focused) {
+    private void doZoom(final View v, final boolean focused) {
         final Runnable apply = new Runnable() {
             @Override public void run() {
                 v.setPivotX(v.getWidth() / 2f);
@@ -500,7 +623,6 @@ public class HomeActivity extends Activity {
             }
         };
         if (v.getWidth() == 0 || v.getHeight() == 0) v.post(apply); else apply.run();
-        if (focused) keepClear(v);
     }
 
     /** Walk from the row up to the window root, turning clipping off on every group. */
