@@ -406,6 +406,16 @@ public class HomeActivity extends Activity {
         for (AppEntry e : streamingApps(apps)) streaming.add(bannerTile(e));
         if (!streaming.isEmpty()) rowsContainer.addView(makeRow("STREAMING", streaming, dp(228), dp(128)));
 
+        // Real content rows from free public feeds (added async; removed if unreachable).
+        addContentRow("TRENDING TRAILERS", "trailers",
+                new String[]{"https://www.youtube.com/feeds/videos.xml?channel_id=UCi8e0iOVk1fEOogdfu4YgfA"}, 15);
+        addContentRow("NEWS", "news",
+                new String[]{"https://www.myjoyonline.com/feed/", "https://feeds.bbci.co.uk/news/world/rss.xml"}, 16);
+        addContentRow("SPORTS", "sports",
+                new String[]{"https://feeds.bbci.co.uk/sport/rss.xml"}, 15);
+        addContentRow("TECH", "tech",
+                new String[]{"https://feeds.bbci.co.uk/news/technology/rss.xml"}, 15);
+
         rowsContainer.addView(makeRow("WOW OS", toolTiles(), dp(118), dp(118)));
 
         if (InputSwitch.available(this)) {
@@ -558,6 +568,105 @@ public class HomeActivity extends Activity {
         block.addView(hsv, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         return block;
+    }
+
+    /** A content row (news/trailers/etc.) populated asynchronously from a public feed.
+     *  Shows a brief loading state, then real thumbnails — or removes itself if the
+     *  feed is empty or unreachable (never an empty section). */
+    private void addContentRow(final String label, final String cacheKey, final String[] urls, final int cap) {
+        final LinearLayout block = new LinearLayout(this);
+        block.setOrientation(LinearLayout.VERTICAL);
+        block.setClipChildren(false);
+        block.setClipToPadding(false);
+        block.setTag(EXTRA_ROW);
+
+        TextView lab = new TextView(this);
+        lab.setText(label);
+        lab.setTextColor(0x99FFFFFF);
+        lab.setTextSize(13);
+        lab.setLetterSpacing(0.12f);
+        LinearLayout.LayoutParams labLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        labLp.leftMargin = dp(44);
+        labLp.topMargin = dp(20);
+        block.addView(lab, labLp);
+
+        final LinearLayout inner = new LinearLayout(this);
+        inner.setOrientation(LinearLayout.HORIZONTAL);
+        inner.setClipChildren(false);
+        HorizontalScrollView hsv = new HorizontalScrollView(this);
+        hsv.setHorizontalScrollBarEnabled(false);
+        hsv.setClipChildren(false);
+        hsv.setClipToPadding(false);
+        hsv.setPadding(dp(44), dp(16), dp(44), dp(24));
+        hsv.addView(inner);
+        block.addView(hsv, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        TextView loading = new TextView(this);
+        loading.setText("Loading…");
+        loading.setTextColor(0x66FFFFFF);
+        loading.setTextSize(13);
+        loading.setGravity(Gravity.CENTER_VERTICAL);
+        inner.addView(loading, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(128)));
+
+        rowsContainer.addView(block);
+
+        new Thread(new Runnable() {
+            @Override public void run() {
+                final List<Feeds.Item> items = Feeds.fetchMerged(cacheKey, urls, cap);
+                ui.post(new Runnable() {
+                    @Override public void run() {
+                        if (block.getParent() == null) return;             // row was rebuilt meanwhile
+                        inner.removeAllViews();
+                        if (items == null || items.isEmpty()) { rowsContainer.removeView(block); return; }
+                        for (Feeds.Item it : items) addTile(contentTile(it), inner, dp(26), dp(228), dp(128));
+                    }
+                });
+            }
+        }, "wowos-feed-" + cacheKey).start();
+    }
+
+    /** A wide content tile: feed thumbnail with a title overlay; opens the link on click. */
+    private View contentTile(final Feeds.Item it) {
+        FrameLayout f = new FrameLayout(this);
+        f.setBackgroundColor(0xFF161A22);
+        ImageView img = new ImageView(this);
+        img.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        f.addView(img, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+
+        View scrim = new View(this);
+        scrim.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{0x00000000, 0xCC000000}));
+        f.addView(scrim, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+
+        TextView t = new TextView(this);
+        t.setText(it.title);
+        t.setTextColor(0xFFFFFFFF);
+        t.setTextSize(12);
+        t.setMaxLines(2);
+        t.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        FrameLayout.LayoutParams tlp = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM | Gravity.START);
+        tlp.setMargins(dp(10), 0, dp(10), dp(8));
+        t.setLayoutParams(tlp);
+        f.addView(t);
+
+        f.setFocusable(true);
+        f.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override public void onFocusChange(View v, boolean has) { doZoom(v, has); }
+        });
+        f.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) { openLink(it.link); } });
+        ImageLoad.into(img, it.image, dp(228), dp(128));
+        return f;
+    }
+
+    private void openLink(String url) {
+        if (url == null || url.isEmpty()) return;
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        } catch (Throwable t) {
+            toast("Couldn't open that link");
+        }
     }
 
     private static final String GLOW_TAG = "wow_glow";
