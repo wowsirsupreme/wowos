@@ -26,10 +26,12 @@ import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.GridView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
@@ -72,6 +74,9 @@ public class FilesActivity extends Activity {
     private TextView pathView;
     private TextView emptyView;
     private ListView list;
+    private GridView grid;
+    private boolean gridMode;
+    private TextView viewText;
     private View pasteButton;
     private TextView pasteText;
     private final FileAdapter adapter = new FileAdapter();
@@ -108,25 +113,30 @@ public class FilesActivity extends Activity {
         pathView = findViewById(R.id.path);
         emptyView = findViewById(R.id.empty);
         list = findViewById(R.id.list);
+        grid = findViewById(R.id.grid);
+        viewText = findViewById(R.id.view_text);
         pasteButton = findViewById(R.id.btn_paste);
         pasteText = findViewById(R.id.paste_text);
 
-        list.setAdapter(adapter);
-        list.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+        AdapterView.OnItemClickListener click = new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> p, View v, int pos, long id) {
                 Item it = adapter.getItem(pos);
                 if (selecting) { toggleSel(it); return; }
                 if (it.dir) open(it.file, currentPlace); else openFile(it.file, false);
             }
-        });
-        list.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+        };
+        AdapterView.OnItemLongClickListener longClick = new AdapterView.OnItemLongClickListener() {
             @Override
             public boolean onItemLongClick(AdapterView<?> p, View v, int pos, long id) {
                 showFileOptions(adapter.getItem(pos));
                 return true;
             }
-        });
+        };
+        list.setOnItemClickListener(click);
+        list.setOnItemLongClickListener(longClick);
+        grid.setOnItemClickListener(click);
+        grid.setOnItemLongClickListener(longClick);
 
         findViewById(R.id.btn_up).setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { goUp(); }
@@ -140,6 +150,10 @@ public class FilesActivity extends Activity {
         android.content.SharedPreferences sp = getSharedPreferences("files", MODE_PRIVATE);
         sortMode = sp.getInt("sort_mode", 0);
         sortAsc = sp.getBoolean("sort_asc", true);
+        gridMode = sp.getBoolean("grid", false);
+        findViewById(R.id.btn_view).setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { toggleView(); } });
+        applyViewMode();
         selBar = findViewById(R.id.sel_bar);
         sortText = findViewById(R.id.sort_text);
         selCount = findViewById(R.id.sel_count);
@@ -157,7 +171,7 @@ public class FilesActivity extends Activity {
             @Override public void onClick(View v) { deleteSelected(); } });
         findViewById(R.id.sel_done).setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { exitSelect(); } });
-        for (int id : new int[]{R.id.btn_up, R.id.btn_new, R.id.btn_paste, R.id.btn_sort, R.id.btn_select,
+        for (int id : new int[]{R.id.btn_up, R.id.btn_new, R.id.btn_paste, R.id.btn_sort, R.id.btn_select, R.id.btn_view,
                 R.id.sel_all, R.id.sel_copy, R.id.sel_move, R.id.sel_delete, R.id.sel_done}) {
             findViewById(id).setOnFocusChangeListener(Tiles.LIFT_ON_FOCUS);
         }
@@ -203,11 +217,34 @@ public class FilesActivity extends Activity {
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
-        if (keyCode == KeyEvent.KEYCODE_MENU && list.hasFocus()) {
-            Object o = list.getSelectedItem();
+        if (keyCode == KeyEvent.KEYCODE_MENU && activeView().hasFocus()) {
+            Object o = activeView().getSelectedItem();
             if (o instanceof Item) { showFileOptions((Item) o); return true; }
         }
         return super.onKeyDown(keyCode, event);
+    }
+
+    // ------------------------------------------------------------------ list / grid view
+
+    private AbsListView activeView() { return gridMode ? grid : list; }
+
+    private void toggleView() {
+        gridMode = !gridMode;
+        getSharedPreferences("files", MODE_PRIVATE).edit().putBoolean("grid", gridMode).apply();
+        applyViewMode();
+        activeView().requestFocus();
+    }
+
+    private void applyViewMode() {
+        if (gridMode) {
+            list.setVisibility(View.GONE); list.setAdapter(null);
+            grid.setVisibility(View.VISIBLE); grid.setAdapter(adapter);
+        } else {
+            grid.setVisibility(View.GONE); grid.setAdapter(null);
+            list.setVisibility(View.VISIBLE); list.setAdapter(adapter);
+        }
+        if (viewText != null) viewText.setText(gridMode ? "List" : "Grid");  // label = mode you switch to
+        adapter.notifyDataSetChanged();
     }
 
     // ------------------------------------------------------------------ permissions
@@ -342,7 +379,7 @@ public class FilesActivity extends Activity {
             row.setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) {
                     open(p.dir, p);
-                    list.requestFocus();
+                    activeView().requestFocus();
                 }
             });
             if (p.removable) {
@@ -419,7 +456,7 @@ public class FilesActivity extends Activity {
                         if (unreadable) emptyView.setText("This folder can't be opened");
                         else emptyView.setText("Empty folder");
                         emptyView.setVisibility(items.isEmpty() ? View.VISIBLE : View.GONE);
-                        if (!items.isEmpty()) list.setSelection(0);
+                        if (!items.isEmpty()) activeView().setSelection(0);
                     }
                 });
             }
@@ -440,7 +477,7 @@ public class FilesActivity extends Activity {
         ui.postDelayed(new Runnable() {
             @Override public void run() {
                 for (int i = 0; i < adapter.getCount(); i++) {
-                    if (same(adapter.getItem(i).file, child)) { list.setSelection(i); break; }
+                    if (same(adapter.getItem(i).file, child)) { activeView().setSelection(i); break; }
                 }
             }
         }, 300);
@@ -772,7 +809,7 @@ public class FilesActivity extends Activity {
         selBar.setVisibility(View.VISIBLE);
         updateSelCount();
         adapter.notifyDataSetChanged();
-        list.requestFocus();
+        activeView().requestFocus();
     }
 
     private void exitSelect() {
@@ -982,8 +1019,12 @@ public class FilesActivity extends Activity {
 
         @Override
         public View getView(int pos, View v, ViewGroup parent) {
-            if (v == null) v = inflater.inflate(R.layout.item_file, parent, false);
             Item it = items.get(pos);
+            return gridMode ? gridView(it, v, parent) : listView(it, v, parent);
+        }
+
+        private View listView(Item it, View v, ViewGroup parent) {
+            if (v == null || v.findViewById(R.id.meta) == null) v = inflater.inflate(R.layout.item_file, parent, false);
             ((ImageView) v.findViewById(R.id.icon)).setImageResource(iconFor(it));
             ((TextView) v.findViewById(R.id.name)).setText(it.name);
             String date = DateFormat.getMediumDateFormat(FilesActivity.this).format(new Date(it.modified));
@@ -991,17 +1032,40 @@ public class FilesActivity extends Activity {
                     ? (it.children == 1 ? "1 item" : it.children + " items") + " · " + date
                     : Formatter.formatShortFileSize(FilesActivity.this, it.size) + " · " + date;
             ((TextView) v.findViewById(R.id.meta)).setText(meta);
-            ImageView check = v.findViewById(R.id.check);
+            applySelection(v, it, v.findViewById(R.id.check), 0.7f);
+            return v;
+        }
+
+        private View gridView(Item it, View v, ViewGroup parent) {
+            if (v == null || v.findViewById(R.id.thumb) == null) v = inflater.inflate(R.layout.item_file_grid, parent, false);
+            ImageView thumb = v.findViewById(R.id.thumb);
+            ((TextView) v.findViewById(R.id.name)).setText(it.name);
+            // Reset to the type icon (fitCenter, padded); ThumbLoad swaps in a real preview if it can.
+            int pad = Math.round(34 * getResources().getDisplayMetrics().density);
+            thumb.setPadding(pad, pad, pad, pad);
+            thumb.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            thumb.setImageResource(iconFor(it));
+            thumb.setTag(null);
+            if (!it.dir) {
+                String ex = ext(it.name);
+                ThumbLoad.into(thumb, it.file, IMAGE.contains(ex), VIDEO.contains(ex),
+                        Math.round(150 * getResources().getDisplayMetrics().density),
+                        Math.round(150 * getResources().getDisplayMetrics().density));
+            }
+            applySelection(v, it, v.findViewById(R.id.check), 0.6f);
+            return v;
+        }
+
+        private void applySelection(View v, Item it, ImageView check, float dim) {
             if (selecting) {
                 boolean on = selected.contains(it.file.getAbsolutePath());
                 check.setVisibility(View.VISIBLE);
                 check.setAlpha(on ? 1f : 0.25f);
-                v.setAlpha(on ? 1f : 0.7f);
+                v.setAlpha(on ? 1f : dim);
             } else {
                 check.setVisibility(View.GONE);
                 v.setAlpha(1f);
             }
-            return v;
         }
     }
 }

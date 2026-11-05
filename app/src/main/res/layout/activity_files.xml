@@ -94,6 +94,11 @@
                     android:textSize="12sp" />
             </LinearLayout>
 
+            <LinearLayout android:id="@+id/btn_view" style="@style/GlassButton">
+                <ImageView style="@style/GlassButtonIcon" android:src="@drawable/ic_grid" />
+                <TextView android:id="@+id/view_text" style="@style/GlassButtonText" android:text="Grid" />
+            </LinearLayout>
+
             <LinearLayout android:id="@+id/btn_sort" style="@style/GlassButton">
                 <ImageView style="@style/GlassButtonIcon" android:src="@drawable/ic_sort" />
                 <TextView android:id="@+id/sort_text" style="@style/GlassButtonText" android:text="Sort" />
@@ -178,6 +183,19 @@
                 android:drawSelectorOnTop="false"
                 android:listSelector="@drawable/glass_row"
                 android:scrollbars="none" />
+
+            <GridView
+                android:id="@+id/grid"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:columnWidth="150dp"
+                android:gravity="center"
+                android:horizontalSpacing="4dp"
+                android:numColumns="auto_fit"
+                android:scrollbars="none"
+                android:stretchMode="spacingWidthUniform"
+                android:verticalSpacing="4dp"
+                android:visibility="gone" />
 
             <TextView
                 android:id="@+id/empty"
