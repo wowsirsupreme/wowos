@@ -46,6 +46,15 @@ final class ImageLoad {
     }
 
     private static Bitmap download(String urlStr, int reqW, int reqH) {
+        Bitmap b = downloadOnce(urlStr, reqW, reqH);
+        // YouTube HD stills don't always exist; fall back to the standard one.
+        if (b == null && urlStr.contains("maxresdefault")) {
+            b = downloadOnce(urlStr.replace("maxresdefault", "hqdefault"), reqW, reqH);
+        }
+        return b;
+    }
+
+    private static Bitmap downloadOnce(String urlStr, int reqW, int reqH) {
         HttpURLConnection c = null;
         try {
             URL url = new URL(urlStr);

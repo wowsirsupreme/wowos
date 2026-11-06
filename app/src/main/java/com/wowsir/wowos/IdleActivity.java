@@ -185,6 +185,8 @@ public class IdleActivity extends Activity {
                     videoW = m.getVideoWidth(); videoH = m.getVideoHeight();
                     updateVideoTransform();
                     try { m.start(); } catch (Throwable ignored) { }
+                    ui.removeCallbacks(loopWatch);
+                    ui.postDelayed(loopWatch, 500);      // guarantee the loop even if the codec won't
                 }
             });
             player.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
@@ -233,7 +235,21 @@ public class IdleActivity extends Activity {
         texture.setTransform(mx);
     }
 
+    /** Safety-net loop: if the player has stopped at the end (native looping and the
+     *  completion restart both fail on this ROM), seek to the start and play again.
+     *  When native looping works, isPlaying() stays true and this does nothing. */
+    private final Runnable loopWatch = new Runnable() {
+        @Override public void run() {
+            if (player == null) return;
+            try {
+                if (!player.isPlaying()) { player.seekTo(0); player.start(); }
+            } catch (Throwable ignored) { }
+            ui.postDelayed(this, 500);
+        }
+    };
+
     private void releasePlayer() {
+        ui.removeCallbacks(loopWatch);
         if (player != null) {
             try { player.reset(); } catch (Throwable ignored) { }
             try { player.release(); } catch (Throwable ignored) { }

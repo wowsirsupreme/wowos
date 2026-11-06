@@ -28,6 +28,7 @@ final class Feeds {
         String title;
         String link;
         String image;
+        int imageW;          // width of the chosen image, so we can prefer the largest
         boolean video;
     }
 
@@ -92,7 +93,8 @@ final class Feeds {
                 else if (cur != null) {
                     if (eq(name, "media:thumbnail") || eq(name, "media:content") || eq(name, "thumbnail")) {
                         String u = p.getAttributeValue(null, "url");
-                        if (u != null && cur.image == null && looksImage(u)) cur.image = u;
+                        int w = parseInt(p.getAttributeValue(null, "width"));
+                        if (u != null && looksImage(u) && w >= cur.imageW) { cur.image = u; cur.imageW = Math.max(w, 1); }
                     } else if (eq(name, "enclosure")) {
                         String u = p.getAttributeValue(null, "url");
                         String t = p.getAttributeValue(null, "type");
@@ -116,7 +118,9 @@ final class Feeds {
                     } else if (eq(name, "item") || eq(name, "entry")) {
                         if (videoId != null) {
                             if (cur.link == null) cur.link = "https://www.youtube.com/watch?v=" + videoId;
-                            if (cur.image == null) cur.image = "https://img.youtube.com/vi/" + videoId + "/hqdefault.jpg";
+                            // HD still (falls back to hqdefault in ImageLoad if maxres is absent)
+                            cur.image = "https://img.youtube.com/vi/" + videoId + "/maxresdefault.jpg";
+                            cur.imageW = 1280;
                         }
                         if (cur.title != null && cur.link != null) items.add(cur);
                         cur = null;
@@ -130,6 +134,11 @@ final class Feeds {
     }
 
     private static boolean eq(String a, String b) { return a != null && a.equalsIgnoreCase(b); }
+
+    private static int parseInt(String s) {
+        if (s == null) return 0;
+        try { return Integer.parseInt(s.trim()); } catch (Throwable t) { return 0; }
+    }
 
     private static boolean looksImage(String u) {
         String s = u.toLowerCase();
